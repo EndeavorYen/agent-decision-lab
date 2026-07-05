@@ -1,0 +1,4 @@
+.agent-lab/
+.npm-cache/
+node_modules/
+*.tgz

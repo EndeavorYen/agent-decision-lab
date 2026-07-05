@@ -413,8 +413,6 @@ Examples:
 
 ## Open Questions
 
-- Should `.agent-lab/` be ignored by default, tracked by default, or split into
-  tracked metadata and ignored transcript storage?
 - Should the CLI provide a lightweight TUI in the MVP or stay command-only?
 - Should checkpoints create Git commits, only metadata events, or support both?
 - Should redaction run at log time, export time, or both?
@@ -422,3 +420,10 @@ Examples:
 - Should `savepoint create` require a clean working tree for every forkable
   savepoint, and use a separate metadata-only checkpoint command for dirty
   states?
+
+## Decided Defaults
+
+- The Agent Decision Lab repository ignores `.agent-lab/` by default so private
+  experiment data does not enter the open-source tool repository.
+- Shareable evidence should be exported through redacted JSON, Markdown, SVG, or
+  HTML reports instead of committing raw experiment state.

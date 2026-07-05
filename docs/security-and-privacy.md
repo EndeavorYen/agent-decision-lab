@@ -40,16 +40,15 @@ The CLI should:
 
 Use `.agent-lab/` for experiment metadata in the target workspace.
 
-The project should decide whether to track or ignore `.agent-lab/` per
-experiment. A likely pattern is:
+The Agent Decision Lab tool repository ignores raw `.agent-lab/` data by
+default:
 
 ```gitignore
-.agent-lab/events.jsonl
-.agent-lab/**/events.jsonl
-.agent-lab/**/transcripts/
-.agent-lab/**/exports/private/
+.agent-lab/
 ```
 
+Target repositories may choose a stricter or looser policy, but the recommended
+default is to keep raw experiment state private and share only redacted exports.
 Less sensitive files such as sanitized summaries may be committed if the user
 chooses.
 

@@ -3,12 +3,33 @@
   "version": "0.1.0",
   "description": "Local-first CLI for branching AI development experiments.",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EndeavorYen/agent-decision-lab.git"
+  },
+  "keywords": [
+    "agent",
+    "ai",
+    "cli",
+    "decision-tree",
+    "experiments",
+    "git-worktree"
+  ],
   "bin": {
     "adl": "./bin/adl.js"
   },
+  "files": [
+    "AGENTS.md",
+    "LICENSE",
+    "README.md",
+    "bin/",
+    "docs/",
+    "src/"
+  ],
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "smoke": "node tests/smoke-runner.mjs"
+    "smoke": "node tests/smoke-runner.mjs",
+    "verify": "npm test && npm run smoke && git diff --check && npm pack --dry-run"
   },
   "engines": {
     "node": ">=22"

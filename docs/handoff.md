@@ -126,8 +126,6 @@ single-binary distribution becomes the top priority.
 
 ## Important Open Questions
 
-- Should `.agent-lab/` be committed, ignored, or split into public and private
-  subdirectories?
 - Should checkpoints create Git commits by default, or only metadata events?
 - Should the package expose both `agent-lab` and `adl` commands? Current MVP
   exposes only `adl`.
@@ -160,11 +158,8 @@ worktree paths with `[REDACTED_LOCAL_PATH]`.
 
 Before release or wider use:
 
-- decide whether `.agent-lab/` is tracked by default;
-- run `npm test`;
-- run `npm run smoke`;
-- run `git diff --check`;
-- run a real private experiment in a toy repository;
+- run `npm run verify`;
+- review `docs/release-readiness.md`;
+- keep at least one private live case study export as release evidence;
 - confirm sanitized exports do not include local paths or raw transcripts;
-- decide whether to add TypeScript, linting, or packaging automation before
-  publishing.
+- decide whether to add TypeScript or linting before a larger public release.

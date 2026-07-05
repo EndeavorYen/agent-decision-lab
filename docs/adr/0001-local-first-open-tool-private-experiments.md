@@ -44,7 +44,12 @@ Negative:
 
 ## Follow-Up Decisions
 
-- Define default `.gitignore` guidance for `.agent-lab/`.
 - Define redaction profiles.
 - Decide whether sanitized summaries can be tracked by default.
 - Decide whether checkpoint metadata should ever live on a separate Git branch.
+
+## Follow-Up Decision Updates
+
+- The Agent Decision Lab repository now ignores `.agent-lab/` by default. Raw
+  experiment state stays private unless a target repository intentionally adopts
+  a different policy.

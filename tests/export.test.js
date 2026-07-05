@@ -51,7 +51,7 @@ test('redacts local filesystem paths from exports by default', async () => {
     });
     await appendEvent(repo, {
       type: 'command',
-      body: 'Ran npm --prefix /private/tmp/adl-case-study/tmp-worktree test from /Users/simon/Code/Bald-Patch',
+      body: 'Ran npm --prefix /private/tmp/adl-case-study/tmp-worktree test from /Users/example/Code/example-target',
       actor: 'agent',
     });
 
@@ -61,7 +61,7 @@ test('redacts local filesystem paths from exports by default', async () => {
       redact: true,
     });
     assert.doesNotMatch(markdown, /\/private\/tmp/);
-    assert.doesNotMatch(markdown, /\/Users\/simon/);
+    assert.doesNotMatch(markdown, /\/Users\/example/);
     assert.match(markdown, /\[REDACTED_LOCAL_PATH\]/);
 
     const bundle = await exportExperiment(repo, {

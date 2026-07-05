@@ -181,6 +181,7 @@ or local review scripts without depending on a specific model provider.
 - [MVP Implementation Design](docs/mvp-implementation-design.md)
 - [Testing Strategy](docs/testing-strategy.md)
 - [Security and Privacy](docs/security-and-privacy.md)
+- [Release Readiness](docs/release-readiness.md)
 - [Roadmap](docs/roadmap.md)
 - [Research Notes](docs/research-notes.md)
 - [Handoff Notes](docs/handoff.md)
