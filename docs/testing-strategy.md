@@ -78,6 +78,18 @@ adl export --format json --out export.json
 The smoke test should assert that the export is valid JSON and references the
 created decision, variant, and checkpoint.
 
+The current repository provides:
+
+```bash
+npm test
+npm run smoke
+```
+
+`npm test` runs unit, integration, export, redaction, and CLI smoke tests with
+Node's built-in test runner. `npm run smoke` creates a temporary Git repository,
+initializes a live synthetic experiment with two variants, logs events, renders
+the tree, and writes JSON and Markdown exports.
+
 ## Test Data Policy
 
 All test data must be synthetic.
@@ -110,6 +122,15 @@ git status --short
 
 Once an implementation exists, add the project test command here and run it
 before handoff.
+
+Current verification commands:
+
+```bash
+npm test
+npm run smoke
+git diff --check
+git status --short
+```
 
 ## Acceptance Criteria for MVP
 

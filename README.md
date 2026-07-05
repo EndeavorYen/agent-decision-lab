@@ -25,8 +25,9 @@ used.
 
 ## Status
 
-Pre-alpha design draft. The current repository contains product and engineering
-specifications for the first implementation pass.
+MVP CLI implemented. The current repository contains product and engineering
+specifications plus a dependency-free Node.js command line tool for the first
+local experiment workflow.
 
 ## Why This Exists
 
@@ -56,41 +57,61 @@ provides the generic experiment machinery.
 
 ## MVP Shape
 
-The first implementation should provide a CLI and file-based metadata store:
+The first implementation provides a CLI and file-based metadata store:
 
 - initialize an experiment in a target repository;
 - create decision points;
 - start variants from a decision point;
-- create or attach Git branches and worktrees for each variant;
+- create Git branches and optional worktrees for each variant;
 - record prompts, responses, notes, checkpoints, commands, and artifacts;
 - render the decision tree for humans;
-- export structured JSON for later LLM or data analysis.
+- export structured JSON and Markdown for later human, LLM, or data analysis;
+- run summary-first export with redaction enabled by default.
 
-The MVP may support bring-your-own-agent workflows first. Direct model
-orchestration can be added behind an adapter interface after the data model and
-branching workflow are stable.
+The MVP supports bring-your-own-agent workflows first. Direct model
+orchestration remains a later adapter layer.
+
+## Install and Run Locally
+
+This package has no runtime dependencies. From this repository:
+
+```bash
+npm test
+node bin/adl.js --help
+```
+
+To try the installed command locally:
+
+```bash
+npm link
+adl --help
+```
 
 ## Conceptual Workflow
 
 ```bash
 adl init "Improve Checkout Flow"
-adl decision create "Context strategy"
-adl variant start --decision context-strategy --name guidance-first
+adl decision create "Context strategy" \
+  --rationale "Compare guidance-visible and prompt-only runs"
+adl variant start guidance-first --decision context-strategy
 adl log prompt --stdin
 adl checkpoint "Design approved"
-adl variant start --from context-strategy --name prompt-only
+adl variant start prompt-only --decision context-strategy --worktree
 adl tree
-adl export --format json --out reports/experiment-tree.json
+adl export --format json --out .agent-lab/exports/latest.json
+adl export --format markdown --out .agent-lab/exports/latest.md
 ```
 
-The exact command names are part of the design draft and may change during
-implementation.
+The CLI stores records under `.agent-lab/` in the target repository. Event
+bodies are omitted from default exports; pass `--include-private` only for
+private, local analysis.
 
 ## Documentation
 
 - [Product Requirements](docs/product-requirements.md)
 - [Goals](docs/goals.md)
 - [Design](docs/design.md)
+- [MVP Implementation Design](docs/mvp-implementation-design.md)
 - [Testing Strategy](docs/testing-strategy.md)
 - [Security and Privacy](docs/security-and-privacy.md)
 - [Roadmap](docs/roadmap.md)

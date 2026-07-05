@@ -2,12 +2,27 @@
 
 ## Current State
 
-This repository is in product-definition mode.
+This repository has a usable MVP CLI.
 
-The initial documentation defines Agent Decision Lab as an open-source
-local-first CLI for managing branching AI development experiments.
+The documentation defines Agent Decision Lab as an open-source local-first CLI
+for managing branching AI development experiments. The repository now also
+contains a dependency-free Node.js implementation of the first workflow.
 
-No implementation exists yet.
+Implemented commands:
+
+- `adl --help`
+- `adl init`
+- `adl status`
+- `adl decision create`
+- `adl variant start`
+- `adl log prompt`
+- `adl log response`
+- `adl log note`
+- `adl log command`
+- `adl log artifact`
+- `adl checkpoint`
+- `adl tree`
+- `adl export`
 
 ## Product Decision Already Made
 
@@ -20,9 +35,9 @@ Core boundary:
 Tool is open. Experiments are private.
 ```
 
-## Recommended MVP
+## Implemented MVP
 
-Build a CLI that supports:
+The CLI supports:
 
 - `adl init`;
 - `adl decision create`;
@@ -34,48 +49,50 @@ Build a CLI that supports:
 - `adl tree`;
 - `adl export`.
 
-The MVP can use manual transcript logging. Direct model orchestration should be
-designed as a future adapter layer, not required for the first usable version.
+The MVP uses manual transcript logging. Direct model orchestration is still a
+future adapter layer, not a dependency of the first usable version.
 
-## Recommended Stack
+## Current Stack
 
-Current recommendation: Node.js with TypeScript.
+Current implementation: dependency-free Node.js ESM with JSDoc-friendly module
+boundaries.
 
 Reasons:
 
-- good CLI ecosystem;
 - easy JSON and Markdown handling;
-- natural fit for schema validation;
-- accessible to many open-source contributors;
-- easy future integration with model SDKs;
-- close enough to the first intended case study environment.
+- no install-time network dependency;
+- built-in `node:test` runner;
+- easy future migration to TypeScript once the public data model settles;
+- accessible to many open-source contributors.
 
-Go remains a reasonable alternative if single-binary distribution becomes the
-top priority.
+TypeScript remains a reasonable next step if distribution and contributor
+workflow need stronger static checks. Go remains a reasonable alternative if
+single-binary distribution becomes the top priority.
 
-## First Implementation Plan Sketch
+## Implementation Completed
 
-1. Create project scaffold.
-2. Add CLI parser and `adl --help`.
-3. Add schema definitions for experiment, decision, variant, event, and
-   artifact metadata.
-4. Implement `.agent-lab/` initialization.
-5. Implement append-only event logging.
-6. Implement tree rendering from metadata.
-7. Implement JSON and Markdown export.
-8. Add temporary Git repository integration tests.
-9. Implement branch and worktree creation.
-10. Add redaction and export privacy profiles.
+- Project scaffold in `package.json`.
+- CLI entrypoint in `bin/adl.js`.
+- Core modules under `src/`.
+- Store initialization under `.agent-lab/`.
+- Append-only event logging in `events.jsonl`.
+- Decision and variant lifecycle.
+- Git branch creation and optional worktree creation.
+- Dirty-tree safety outside `.agent-lab/`.
+- Tree rendering.
+- JSON and Markdown export.
+- Summary-first exports with default redaction.
+- Temporary Git repository tests and live smoke script.
 
 ## Important Open Questions
 
 - Should `.agent-lab/` be committed, ignored, or split into public and private
   subdirectories?
 - Should checkpoints create Git commits by default, or only metadata events?
-- Should the first CLI include a TUI, or should it stay simple and scriptable?
-- Should the package expose both `agent-lab` and `adl` commands?
+- Should the package expose both `agent-lab` and `adl` commands? Current MVP
+  exposes only `adl`.
 - Should experiment exports include full transcripts by default? Current
-  recommendation: no.
+  implementation says no; `--include-private` is required.
 - Should branch/worktree paths be configurable globally, per repo, or per
   experiment?
 
@@ -95,11 +112,12 @@ implementation quality.
 
 ## Handoff Checklist
 
-Before implementation starts:
+Before release or wider use:
 
-- review and approve `docs/product-requirements.md`;
-- resolve or defer open questions in `docs/design.md`;
-- choose the implementation stack;
 - decide whether `.agent-lab/` is tracked by default;
-- create initial issues or milestones from `docs/roadmap.md`;
-- define the first smoke test.
+- run `npm test`;
+- run `npm run smoke`;
+- run `git diff --check`;
+- run a real private experiment in a toy repository;
+- decide whether to add TypeScript, linting, or packaging automation before
+  publishing.
