@@ -152,6 +152,7 @@ The MVP test suite should prove that:
 - tree rendering matches the stored metadata;
 - JSON exports are deterministic;
 - redaction can be applied before sharing exports;
+- redacted exports remove local home-directory and temporary worktree paths;
 - a user can resume an experiment after closing the terminal;
 - a user can return to a savepoint and fork another clean variant from the same
   recorded state.

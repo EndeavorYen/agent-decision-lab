@@ -35,6 +35,49 @@ test('redacts common sensitive strings', () => {
   assert.match(redacted, /\[REDACTED/);
 });
 
+test('redacts local filesystem paths from exports by default', async () => {
+  const repo = await createTempGitRepo();
+  try {
+    await createExperimentStore(repo, { title: 'Local Path Lab' });
+    const decision = await createDecision(repo, {
+      title: 'Worktree strategy',
+      rationale: 'Compare isolated worktree paths',
+    });
+    await startVariant(repo, {
+      name: 'tmp-worktree',
+      decision: decision.id,
+      worktreePath: '/private/tmp/adl-case-study/tmp-worktree',
+      createBranch: true,
+    });
+    await appendEvent(repo, {
+      type: 'command',
+      body: 'Ran npm --prefix /private/tmp/adl-case-study/tmp-worktree test from /Users/simon/Code/Bald-Patch',
+      actor: 'agent',
+    });
+
+    const markdown = await exportExperiment(repo, {
+      format: 'markdown',
+      includePrivate: true,
+      redact: true,
+    });
+    assert.doesNotMatch(markdown, /\/private\/tmp/);
+    assert.doesNotMatch(markdown, /\/Users\/simon/);
+    assert.match(markdown, /\[REDACTED_LOCAL_PATH\]/);
+
+    const bundle = await exportExperiment(repo, {
+      format: 'json',
+      includePrivate: true,
+      redact: true,
+    });
+    const serialized = JSON.stringify(bundle);
+    assert.doesNotMatch(serialized, /\/private\/tmp/);
+    assert.doesNotMatch(serialized, /\/Users\/simon/);
+    assert.match(serialized, /\[REDACTED_LOCAL_PATH\]/);
+  } finally {
+    await cleanup(repo);
+  }
+});
+
 test('exports a redacted summary JSON bundle', async () => {
   const repo = await createPopulatedExperiment();
   try {

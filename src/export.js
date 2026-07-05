@@ -101,7 +101,7 @@ function exportEvent(event, options) {
 }
 
 async function renderMarkdown(repoPath, store, options) {
-  const tree = await renderTree(repoPath);
+  const tree = safeText(await renderTree(repoPath), options);
   const lines = [
     `# ${safeText(store.experiment.title, options)}`,
     '',

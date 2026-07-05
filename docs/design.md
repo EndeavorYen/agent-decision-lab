@@ -342,6 +342,11 @@ The JSON export should include:
 - manual scores;
 - redaction metadata.
 
+When redaction is enabled, exports must redact common credentials and local
+filesystem paths such as worktree locations. Public exports should show
+`[REDACTED_LOCAL_PATH]` instead of paths under user home directories or local
+temporary directories.
+
 The Markdown export should include:
 
 - executive summary;

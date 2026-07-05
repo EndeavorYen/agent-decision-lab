@@ -101,6 +101,9 @@ single-binary distribution becomes the top priority.
 - Tree rendering.
 - JSON, Markdown, Mermaid, SVG, and HTML export.
 - Summary-first exports with default redaction.
+- Local filesystem path redaction in default exports.
+- Sanitized multi-agent worktree case study documentation under
+  `docs/examples/`.
 - Temporary Git repository tests and live smoke script.
 
 ## Important Open Questions
@@ -119,17 +122,21 @@ single-binary distribution becomes the top priority.
 
 ## First Example Run
 
-The first example run should use this tool to compare collaboration strategies
-against a toy repository or sanitized workspace.
+The first sanitized example run uses this tool to compare collaboration
+strategies against a real target workspace while keeping raw experiment data
+private.
 
-Candidate first decision point:
+Decision point:
 
-- Variant A: agent reads project guidance before design.
-- Variant B: agent receives only product goals and user-provided prompts.
+- Variant A: agent reads project guidance before coding.
+- Variant B: agent receives only task-relevant code and tests.
+- Variant C: agent writes the failing CLI test first.
 
-The case study should produce a private experiment export that can be analyzed
-for differences in requirements, architecture, tests, safety decisions, and
-implementation quality.
+The public walkthrough is
+`docs/examples/multi-agent-worktree-case-study.md`. The private target
+experiment produced patch artifacts, qualitative evaluations, comparison output,
+and SVG/HTML/Markdown/JSON exports. Default export redaction now replaces local
+worktree paths with `[REDACTED_LOCAL_PATH]`.
 
 ## Handoff Checklist
 
@@ -140,5 +147,6 @@ Before release or wider use:
 - run `npm run smoke`;
 - run `git diff --check`;
 - run a real private experiment in a toy repository;
+- confirm sanitized exports do not include local paths or raw transcripts;
 - decide whether to add TypeScript, linting, or packaging automation before
   publishing.

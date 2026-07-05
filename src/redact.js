@@ -23,6 +23,14 @@ const redactions = [
     pattern: /\b(AKIA|ASIA)[A-Z0-9]{16}\b/g,
     replacement: '[REDACTED_AWS_ACCESS_KEY]',
   },
+  {
+    pattern: /(^|[\s("'=])((?:\/Users\/[^/\s"'`<>),;]+|\/home\/[^/\s"'`<>),;]+|\/private\/tmp|\/tmp|\/var\/folders)\/[^\s"'`<>),;]*)/g,
+    replacement: '$1[REDACTED_LOCAL_PATH]',
+  },
+  {
+    pattern: /(^|[\s("'=])([A-Za-z]:\\Users\\[^\\\s"'`<>),;]+\\[^\s"'`<>),;]*)/g,
+    replacement: '$1[REDACTED_LOCAL_PATH]',
+  },
 ];
 
 export function redactText(value) {

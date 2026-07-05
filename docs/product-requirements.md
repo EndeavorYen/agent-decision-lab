@@ -208,3 +208,8 @@ The MVP is successful when a user can:
 The first public case study should use a toy repository or sanitized sample
 workspace. The Lab should compare collaboration strategies without hard-coding
 anything about a real product into the open-source core.
+
+The repository includes a sanitized multi-agent worktree walkthrough in
+`docs/examples/multi-agent-worktree-case-study.md`. Raw experiment exports,
+agent transcripts, and target-repository local paths remain private to the
+workspace where the case study was run.

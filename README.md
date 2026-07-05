@@ -111,11 +111,15 @@ adl export --format html --out .agent-lab/exports/report.html
 ```
 
 The CLI stores records under `.agent-lab/` in the target repository. Event
-bodies are omitted from default exports; pass `--include-private` only for
-private, local analysis.
+bodies are omitted from default exports, and local filesystem paths are
+redacted by default; pass `--include-private` only for private, local analysis.
 
 Use `adl experiment create` when a repository already has `.agent-lab/` data
 and you want a separate case study without overwriting previous experiments.
+
+For a complete sanitized walkthrough of a multi-agent, multi-worktree case
+study, see
+[`docs/examples/multi-agent-worktree-case-study.md`](docs/examples/multi-agent-worktree-case-study.md).
 
 ## Strategy Experiment Workflow
 

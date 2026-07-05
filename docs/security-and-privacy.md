@@ -102,3 +102,8 @@ to the model.
 Public examples must use toy repositories and synthetic transcripts. They must
 not reference real organizations, non-public projects, private Git remotes, or
 real security incidents.
+
+Sanitized examples may describe a real live run only after replacing local
+workspace paths, worktree paths, raw transcripts, and private artifacts with
+generic placeholders. Default exports should redact home-directory and temporary
+directory paths to `[REDACTED_LOCAL_PATH]`.

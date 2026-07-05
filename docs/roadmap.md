@@ -104,7 +104,7 @@ Deliverables:
 
 ## Phase 7: Savepoint Forking
 
-Status: next planned phase.
+Status: implemented in MVP.
 
 Goal: make decision points restorable so users can return to a recorded state
 and grow another clean branch later.
@@ -120,7 +120,7 @@ Deliverables:
 
 ## Phase 8: Strategy Experiment Layer
 
-Status: planned after savepoint forking.
+Status: implemented in MVP.
 
 Goal: support A/B-style agent collaboration strategy experiments such as project guidance
 visible versus prompt-only.
@@ -134,6 +134,20 @@ Deliverables:
 - Mermaid decision tree export with decision, savepoint, variant, artifact,
   evaluation, comparison, and guidance nodes;
 - guidance draft from comparison results.
+
+## Phase 9: Sanitized Case Study And Release Hardening
+
+Status: in progress.
+
+Goal: prove the tool on a real private workspace while publishing only sanitized
+examples and release-safe documentation.
+
+Deliverables:
+
+- sanitized multi-agent worktree walkthrough;
+- local-path redaction in default exports;
+- live-run evidence kept in the target workspace;
+- verification that public examples omit raw transcripts and local paths.
 
 ## Later Phases
 
