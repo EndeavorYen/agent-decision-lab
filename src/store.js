@@ -16,13 +16,22 @@ import { makeExperimentId, makeNodeId, slugify } from './ids.js';
 export const schemaVersion = 'agent-decision-lab/v1';
 
 export async function createExperimentStore(repoPath, input) {
+  return createExperiment(repoPath, input, { allowExistingLab: false });
+}
+
+export async function createNewExperimentStore(repoPath, input) {
+  return createExperiment(repoPath, input, { allowExistingLab: true });
+}
+
+async function createExperiment(repoPath, input, options) {
   if (!input?.title) {
     throw new Error('Experiment title is required');
   }
 
   const labDir = join(repoPath, '.agent-lab');
   const configPath = join(labDir, 'config.json');
-  if (await exists(configPath)) {
+  const configExists = await exists(configPath);
+  if (configExists && !options.allowExistingLab) {
     throw new Error('.agent-lab/config.json already exists; use adl status to inspect it');
   }
 
@@ -51,13 +60,22 @@ export async function createExperimentStore(repoPath, input) {
   await mkdir(join(experimentDir, 'evaluations'), { recursive: true });
   await mkdir(join(experimentDir, 'comparisons'), { recursive: true });
   await mkdir(join(experimentDir, 'exports'), { recursive: true });
-  await writeJson(configPath, {
-    schemaVersion,
-    currentExperimentId: id,
-    activeVariantId: null,
-    createdAt: now,
-    updatedAt: now,
-  });
+  const config = configExists
+    ? {
+      ...await readJson(configPath),
+      schemaVersion,
+      currentExperimentId: id,
+      activeVariantId: null,
+      updatedAt: now,
+    }
+    : {
+      schemaVersion,
+      currentExperimentId: id,
+      activeVariantId: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+  await writeJson(configPath, config);
   await writeJson(join(experimentDir, 'experiment.json'), experiment);
   await writeJson(join(experimentDir, 'tree.json'), {
     schemaVersion,
@@ -71,6 +89,47 @@ export async function createExperimentStore(repoPath, input) {
   });
   await writeFile(join(experimentDir, 'events.jsonl'), '');
 
+  return experiment;
+}
+
+export async function listExperimentStores(repoPath) {
+  const experimentsDir = join(repoPath, '.agent-lab', 'experiments');
+  if (!await exists(experimentsDir)) {
+    return [];
+  }
+  const dirs = (await readdir(experimentsDir, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+  const experiments = [];
+  for (const dir of dirs) {
+    const path = join(experimentsDir, dir, 'experiment.json');
+    if (await exists(path)) {
+      experiments.push(await readJson(path));
+    }
+  }
+  return experiments.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+}
+
+export async function switchExperimentStore(repoPath, value) {
+  const labDir = join(repoPath, '.agent-lab');
+  const configPath = join(labDir, 'config.json');
+  const config = await readJson(configPath);
+  const experiments = await listExperimentStores(repoPath);
+  const normalized = slugify(value);
+  const experiment = experiments.find((record) => (
+    record.id === value
+    || record.id === `exp_${normalized}`
+    || record.title === value
+    || slugify(record.title) === normalized
+  ));
+  if (!experiment) {
+    throw new Error(`Experiment not found: ${value}`);
+  }
+  config.currentExperimentId = experiment.id;
+  config.activeVariantId = null;
+  config.updatedAt = new Date().toISOString();
+  await writeJson(configPath, config);
   return experiment;
 }
 

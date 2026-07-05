@@ -4,7 +4,13 @@ import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { cleanup, createTempGitRepo, readJson } from './helpers.js';
 import { slugify } from '../src/ids.js';
-import { createExperimentStore, loadCurrentStore } from '../src/store.js';
+import {
+  createExperimentStore,
+  createNewExperimentStore,
+  listExperimentStores,
+  loadCurrentStore,
+  switchExperimentStore,
+} from '../src/store.js';
 
 test('slugifies human titles into stable ids', () => {
   assert.equal(slugify('Improve Checkout Flow!'), 'improve_checkout_flow');
@@ -36,6 +42,35 @@ test('initializes .agent-lab with experiment metadata and config', async () => {
     assert.equal(await readFile(join(store.paths.experimentDir, 'events.jsonl'), 'utf8'), '');
     await access(join(store.paths.experimentDir, 'variants'));
     await access(join(store.paths.experimentDir, 'exports'));
+  } finally {
+    await cleanup(repo);
+  }
+});
+
+test('creates, lists, and switches between multiple experiments in one repo', async () => {
+  const repo = await createTempGitRepo();
+  try {
+    const first = await createExperimentStore(repo, {
+      title: 'First Lab',
+    });
+    const second = await createNewExperimentStore(repo, {
+      title: 'Bald Patch Case Study',
+    });
+
+    assert.notEqual(first.id, second.id);
+    assert.equal((await loadCurrentStore(repo)).experiment.id, second.id);
+
+    const experiments = await listExperimentStores(repo);
+    assert.deepEqual(
+      experiments.map((experiment) => experiment.title).sort(),
+      ['Bald Patch Case Study', 'First Lab'],
+    );
+
+    await switchExperimentStore(repo, 'First Lab');
+    assert.equal((await loadCurrentStore(repo)).experiment.id, first.id);
+
+    await switchExperimentStore(repo, second.id);
+    assert.equal((await loadCurrentStore(repo)).experiment.id, second.id);
   } finally {
     await cleanup(repo);
   }

@@ -91,6 +91,9 @@ adl --help
 
 ```bash
 adl init "Improve Checkout Flow"
+adl experiment create "Bald Patch Case Study"
+adl experiment list
+adl experiment switch "Bald Patch Case Study"
 adl decision create "Context strategy" \
   --rationale "Compare guidance-visible and prompt-only runs"
 adl savepoint create "Read project guidance?" --decision context-strategy
@@ -110,6 +113,9 @@ adl export --format html --out .agent-lab/exports/report.html
 The CLI stores records under `.agent-lab/` in the target repository. Event
 bodies are omitted from default exports; pass `--include-private` only for
 private, local analysis.
+
+Use `adl experiment create` when a repository already has `.agent-lab/` data
+and you want a separate case study without overwriting previous experiments.
 
 ## Strategy Experiment Workflow
 

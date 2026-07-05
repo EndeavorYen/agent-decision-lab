@@ -13,6 +13,9 @@ Implemented commands:
 - `adl --help`
 - `adl init`
 - `adl status`
+- `adl experiment create`
+- `adl experiment list`
+- `adl experiment switch`
 - `adl decision create`
 - `adl savepoint create`
 - `adl savepoint checkout`
@@ -85,6 +88,7 @@ single-binary distribution becomes the top priority.
 - CLI entrypoint in `bin/adl.js`.
 - Core modules under `src/`.
 - Store initialization under `.agent-lab/`.
+- Multiple experiments per repository with current-experiment switching.
 - Append-only event logging in `events.jsonl`.
 - Decision and variant lifecycle.
 - Clean savepoint forking.

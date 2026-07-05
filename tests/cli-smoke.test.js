@@ -9,6 +9,13 @@ test('runs the MVP workflow through the adl CLI', async () => {
   try {
     assert.equal(runAdl(repo, ['--help']).status, 0);
     assert.equal(runAdl(repo, ['init', 'Smoke Experiment']).status, 0);
+    assert.equal(runAdl(repo, ['experiment', 'create', 'Case Study Experiment']).status, 0);
+    assert.match(runAdl(repo, ['experiment', 'list']).stdout, /Case Study Experiment/);
+    assert.equal(runAdl(repo, ['experiment', 'switch', 'Smoke Experiment']).status, 0);
+    assert.match(runAdl(repo, ['status']).stdout, /Smoke Experiment/);
+    assert.equal(runAdl(repo, ['experiment', 'switch', 'Case Study Experiment']).status, 0);
+    assert.match(runAdl(repo, ['status']).stdout, /Case Study Experiment/);
+    assert.equal(runAdl(repo, ['experiment', 'switch', 'Smoke Experiment']).status, 0);
     assert.equal(
       runAdl(repo, [
         'decision',

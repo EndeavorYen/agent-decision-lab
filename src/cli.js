@@ -13,8 +13,11 @@ import {
   checkoutSavepoint,
   checkoutVariant,
   findVariant,
+  listExperimentStores,
   loadCurrentStore,
   startVariant,
+  switchExperimentStore,
+  createNewExperimentStore,
 } from './store.js';
 import { addArtifact, evaluateVariant, setStrategy } from './strategy.js';
 import { createContextAbTemplate } from './templates.js';
@@ -34,6 +37,12 @@ export async function runCli(argv, io) {
         return await initCommand(io, options, positionals);
       case 'status':
         return await statusCommand(io);
+      case 'experiment create':
+        return await experimentCreateCommand(io, options, positionals);
+      case 'experiment list':
+        return await experimentListCommand(io);
+      case 'experiment switch':
+        return await experimentSwitchCommand(io, options, positionals);
       case 'decision create':
         return await decisionCreateCommand(io, options, positionals);
       case 'savepoint create':
@@ -106,6 +115,34 @@ async function statusCommand(io) {
     `Events: ${store.events.length}`,
     '',
   ].join('\n'));
+  return 0;
+}
+
+async function experimentCreateCommand(io, options, positionals) {
+  const title = positionals.join(' ').trim();
+  const experiment = await createNewExperimentStore(io.cwd, {
+    title,
+    description: options.description ?? '',
+    owner: options.owner ?? null,
+  });
+  write(io.stdout, `Created experiment ${experiment.id}\n`);
+  return 0;
+}
+
+async function experimentListCommand(io) {
+  const store = await loadCurrentStore(io.cwd);
+  const experiments = await listExperimentStores(io.cwd);
+  for (const experiment of experiments) {
+    const marker = experiment.id === store.experiment.id ? '*' : ' ';
+    write(io.stdout, `${marker} ${experiment.id} ${experiment.title}\n`);
+  }
+  return 0;
+}
+
+async function experimentSwitchCommand(io, options, positionals) {
+  const value = positionals.join(' ').trim() || options.experiment;
+  const experiment = await switchExperimentStore(io.cwd, value);
+  write(io.stdout, `Switched experiment ${experiment.id}\n`);
   return 0;
 }
 
@@ -384,6 +421,9 @@ function helpText() {
 Usage:
   adl init "Experiment Title"
   adl status
+  adl experiment create "Experiment Title"
+  adl experiment list
+  adl experiment switch experiment-title-or-id
   adl decision create "Decision Title" --rationale "Why this fork matters" [--parent node-id]
   adl savepoint create "Read project guidance?" --decision decision-title-or-id
   adl variant start variant-name --from savepoint-title-or-id [--worktree]

@@ -1,6 +1,7 @@
 const pairedCommands = new Set([
   'artifact',
   'decision',
+  'experiment',
   'guidance',
   'log',
   'savepoint',

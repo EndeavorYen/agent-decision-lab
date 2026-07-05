@@ -245,6 +245,15 @@ adl export --format svg --out .agent-lab/exports/tree.svg
 adl export --format html --out .agent-lab/exports/report.html
 ```
 
+When the target repository already has experiment data, create a separate
+experiment instead of replacing `.agent-lab/`:
+
+```bash
+adl experiment create "Bald Patch Case Study"
+adl experiment list
+adl experiment switch "Bald Patch Case Study"
+```
+
 Command output can be captured without a model-provider dependency:
 
 ```bash

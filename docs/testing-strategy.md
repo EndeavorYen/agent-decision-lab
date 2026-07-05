@@ -147,6 +147,7 @@ git status --short
 The MVP test suite should prove that:
 
 - metadata is valid after every supported CLI command;
+- multiple experiments can coexist in one target repository;
 - variant branches and worktrees are created without overwriting user work;
 - tree rendering matches the stored metadata;
 - JSON exports are deterministic;
