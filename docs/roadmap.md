@@ -146,8 +146,17 @@ Deliverables:
 
 - sanitized multi-agent worktree walkthrough;
 - local-path redaction in default exports;
+- case-study workflow commands;
+- qualitative no-score comparison support;
+- worktree lifecycle inspection and cleanup dry-runs;
+- dashboard-style HTML report;
 - live-run evidence kept in the target workspace;
 - verification that public examples omit raw transcripts and local paths.
+
+Remaining validation:
+
+- run a second live case study with the productized workflow to check whether
+  the process generalizes beyond the first target repository.
 
 ## Later Phases
 

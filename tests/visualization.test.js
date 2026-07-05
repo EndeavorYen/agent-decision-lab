@@ -197,6 +197,50 @@ test('exports a standalone HTML report with embedded visual tree', async () => {
   }
 });
 
+test('exports an HTML dashboard with artifacts tests qualitative findings privacy and freshness', async () => {
+  const repo = await createTempGitRepo();
+  try {
+    await createExperimentStore(repo, { title: 'Dashboard Strategy Report' });
+    const { variants } = await createContextAbTemplate(repo, {
+      question: 'Which strategy should be used?',
+      decision: 'Strategy choice',
+      a: 'docs-visible',
+      b: 'prompt-only',
+    });
+    await addArtifact(repo, {
+      id: 'docs-visible-patch',
+      variant: variants[0].id,
+      path: 'outputs/docs-visible.patch',
+      summary: 'Patch from docs-visible',
+    });
+    await evaluateVariant(repo, {
+      variant: variants[0].id,
+      noScore: true,
+      strengths: ['Best isolated proof'],
+      weaknesses: ['More setup'],
+      evidence: ['npm test passed'],
+    });
+    await compareVariants(repo, {
+      variants: variants.map((variant) => variant.id),
+      rubric: 'code-review-rule-quality',
+    });
+
+    const html = await exportExperiment(repo, { format: 'html' });
+
+    assert.match(html, /Artifacts/);
+    assert.match(html, /docs-visible-patch/);
+    assert.match(html, /Command Runs/);
+    assert.match(html, /Qualitative Findings/);
+    assert.match(html, /Best isolated proof/);
+    assert.match(html, /Privacy/);
+    assert.match(html, /Redaction/);
+    assert.match(html, /Export Freshness/);
+    assert.match(html, /not scored/);
+  } finally {
+    await cleanup(repo);
+  }
+});
+
 test('redacts sensitive text from SVG and HTML visual exports by default', async () => {
   const repo = await createTempGitRepo();
   try {

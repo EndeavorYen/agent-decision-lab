@@ -134,6 +134,52 @@ test('drafted guidance follows the leading scored strategy', async () => {
   }
 });
 
+test('compares qualitative no-score evaluations without treating them as zero-score winners', async () => {
+  const repo = await createTempGitRepo();
+  try {
+    await createExperimentStore(repo, { title: 'Qualitative Strategy Lab' });
+    const { variants } = await createContextAbTemplate(repo, {
+      question: 'Which collaboration strategy gives better review rules?',
+      decision: 'Collaboration strategy',
+      a: 'docs-visible',
+      b: 'prompt-only',
+    });
+
+    await evaluateVariant(repo, {
+      variant: 'docs-visible',
+      noScore: true,
+      strengths: ['Smallest patch'],
+      weaknesses: ['Looser proof'],
+      evidence: ['npm test passed'],
+    });
+    await evaluateVariant(repo, {
+      variant: 'prompt-only',
+      noScore: true,
+      strengths: ['Focused output'],
+      weaknesses: ['Less project context'],
+      evidence: ['npm test passed'],
+    });
+
+    const comparison = await compareVariants(repo, {
+      variants: variants.map((variant) => variant.id),
+      rubric: 'code-review-rule-quality',
+    });
+    const guidance = await draftGuidance(repo, { comparison: comparison.id });
+
+    assert.equal(comparison.judgment, 'no winner selected; qualitative review required');
+    assert.equal(comparison.variants[0].totalScore, null);
+    assert.match(comparison.markdown, /not scored/);
+    assert.match(comparison.markdown, /## Qualitative Evidence Table/);
+    assert.match(comparison.markdown, /Smallest patch/);
+    assert.match(comparison.markdown, /Recommended next experiment/);
+    assert.doesNotMatch(comparison.markdown, /\|\s*docs-visible\s*\|[^\n]*\|\s*0\s*\|/);
+    assert.match(guidance, /No winner selected/);
+    assert.match(guidance, /Recommended next experiment/);
+  } finally {
+    await cleanup(repo);
+  }
+});
+
 test('drafts guidance from the latest comparison when no comparison id is provided', async () => {
   const { repo, variants } = await createEvaluatedExperiment();
   try {

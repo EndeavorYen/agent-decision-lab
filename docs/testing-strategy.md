@@ -148,6 +148,11 @@ The MVP test suite should prove that:
 
 - metadata is valid after every supported CLI command;
 - multiple experiments can coexist in one target repository;
+- case-study workflow commands can create variants, record qualitative results,
+  and export a report pack;
+- no-score evaluations render as qualitative findings instead of zero scores;
+- worktree lifecycle commands list, summarize, and dry-run cleanup registered
+  ADL worktrees;
 - variant branches and worktrees are created without overwriting user work;
 - tree rendering matches the stored metadata;
 - JSON exports are deterministic;
@@ -158,4 +163,4 @@ The MVP test suite should prove that:
   recorded state.
 - a user can checkout a recorded variant branch;
 - a user can capture a real command run under a variant;
-- a user can export a standalone HTML or SVG visual report.
+- a user can export a standalone SVG tree and dashboard-style HTML report.

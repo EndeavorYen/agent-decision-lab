@@ -224,6 +224,41 @@ adl variant start guidance-first \
 
 Creates or attaches a branch and optional worktree from the savepoint commit.
 
+### Run A Case Study Workflow
+
+The high-level case-study commands bundle the common primitive sequence without
+introducing a separate data model:
+
+```bash
+adl case-study init "Review JSON Case Study" \
+  --decision "Context strategy" \
+  --savepoint "Before task"
+adl case-study add-variant docs-visible --from before-task --worktree
+adl case-study record-result docs-visible \
+  --artifact outputs/docs-visible.patch \
+  --strengths "small proof" \
+  --weaknesses "loose assertions" \
+  --evidence "npm test passed" \
+  --no-score
+adl case-study export docs-visible prompt-only --out-dir .agent-lab/exports/case
+```
+
+`case-study add-variant` creates the variant and records strategy metadata.
+`case-study record-result` registers artifacts and records qualitative or scored
+evaluations. `case-study export` writes comparison, guidance, SVG, HTML,
+Markdown, and JSON outputs.
+
+### Inspect Worktrees
+
+```bash
+adl worktree list
+adl worktree status
+adl worktree cleanup --dry-run
+```
+
+Worktree lifecycle commands operate only on worktrees recorded in variant
+metadata. Cleanup remains dry-run-only in the MVP.
+
 ### Log Session Events
 
 ```bash
@@ -340,6 +375,7 @@ The JSON export should include:
 - Git state;
 - test/check results;
 - manual scores;
+- qualitative no-score findings;
 - redaction metadata.
 
 When redaction is enabled, exports must redact common credentials and local
@@ -356,6 +392,10 @@ The Markdown export should include:
 - artifacts;
 - open questions;
 - next actions.
+
+The HTML export should act as a compact dashboard with decision tree, variant
+table, artifact table, command runs, qualitative findings, privacy/redaction
+status, and export freshness.
 
 ## Error Handling
 

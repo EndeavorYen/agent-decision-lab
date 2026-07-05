@@ -40,6 +40,7 @@ export async function compareVariants(repoPath, input) {
       artifacts: row.artifacts,
       evaluation: row.evaluation,
       totalScore: totalScore(row.evaluation),
+      scoreLabel: scoreLabel(row.evaluation),
     })),
     warnings,
     judgment: judgment(rows),
@@ -74,7 +75,7 @@ export function renderComparisonMarkdown(store, comparison) {
   ];
 
   for (const variant of comparison.variants) {
-    lines.push(`| ${variant.name} | ${variant.strategy?.contextPolicy ?? 'missing strategy'} | ${variant.strategy?.hypothesis ?? ''} | ${variant.totalScore ?? 'missing evaluation'} |`);
+    lines.push(`| ${variant.name} | ${variant.strategy?.contextPolicy ?? 'missing strategy'} | ${variant.strategy?.hypothesis ?? ''} | ${variant.scoreLabel ?? 'missing evaluation'} |`);
   }
 
   lines.push('', '## Artifact Table', '', '| Variant | Artifacts |', '| --- | --- |');
@@ -84,15 +85,18 @@ export function renderComparisonMarkdown(store, comparison) {
 
   lines.push('', '## Rubric Score Table', '', '| Variant | Scores |', '| --- | --- |');
   for (const variant of comparison.variants) {
-    const scores = variant.evaluation
-      ? Object.entries(variant.evaluation.scores).map(([key, value]) => `${key}: ${value}`).join(', ')
-      : 'missing evaluation';
+    const scores = scoreSummary(variant.evaluation);
     lines.push(`| ${variant.name} | ${scores} |`);
   }
 
   lines.push('', '## Qualitative Comparison', '');
   for (const variant of comparison.variants) {
     lines.push(`- ${variant.name}: strengths ${listText(variant.evaluation?.strengths)}; weaknesses ${listText(variant.evaluation?.weaknesses)}.`);
+  }
+
+  lines.push('', '## Qualitative Evidence Table', '', '| Variant | Strengths | Weaknesses | Evidence |', '| --- | --- | --- | --- |');
+  for (const variant of comparison.variants) {
+    lines.push(`| ${variant.name} | ${listText(variant.evaluation?.strengths)} | ${listText(variant.evaluation?.weaknesses)} | ${listText(variant.evaluation?.evidence)} |`);
   }
 
   lines.push('', '## Threats to Validity', '');
@@ -109,6 +113,7 @@ export function renderComparisonMarkdown(store, comparison) {
   for (const candidate of guidanceCandidateLines(comparison)) {
     lines.push(candidate);
   }
+  lines.push('- Recommended next experiment: rerun the leading qualitative candidates on another task or ask a reviewer/LLM to judge artifacts before turning this into a playbook rule.');
   lines.push('');
 
   return lines.join('\n');
@@ -126,10 +131,29 @@ function comparisonRow(store, variant, rubricId) {
 }
 
 function totalScore(evaluation) {
-  if (!evaluation) {
+  if (!evaluation || evaluation.noScore || Object.keys(evaluation.scores ?? {}).length === 0) {
     return null;
   }
   return Object.values(evaluation.scores).reduce((sum, score) => sum + score, 0);
+}
+
+function scoreLabel(evaluation) {
+  if (!evaluation) {
+    return 'missing evaluation';
+  }
+  const score = totalScore(evaluation);
+  return score === null ? 'not scored' : String(score);
+}
+
+function scoreSummary(evaluation) {
+  if (!evaluation) {
+    return 'missing evaluation';
+  }
+  const entries = Object.entries(evaluation.scores ?? {});
+  if (evaluation.noScore || entries.length === 0) {
+    return 'not scored';
+  }
+  return entries.map(([key, value]) => `${key}: ${value}`).join(', ');
 }
 
 function judgment(rows) {
@@ -137,6 +161,10 @@ function judgment(rows) {
     .map((row) => ({ name: row.variant.name, score: totalScore(row.evaluation) }))
     .filter((row) => row.score !== null)
     .sort((a, b) => b.score - a.score);
+  const hasQualitativeEvaluations = rows.some((row) => row.evaluation && totalScore(row.evaluation) === null);
+  if (scored.length === 0 && hasQualitativeEvaluations) {
+    return 'no winner selected; qualitative review required';
+  }
   if (scored.length < 2 || scored[0].score === scored[1].score) {
     return 'inconclusive';
   }
@@ -148,7 +176,10 @@ function guidanceCandidateLines(comparison) {
     .filter((variant) => Number.isFinite(variant.totalScore))
     .toSorted((a, b) => b.totalScore - a.totalScore);
   if (scored.length === 0) {
-    return ['- Add evaluations before deriving a recommendation.'];
+    const hasQualitativeEvaluations = comparison.variants.some((variant) => variant.evaluation);
+    return hasQualitativeEvaluations
+      ? ['- No winner selected from scores; use the qualitative evidence table for human or LLM review.']
+      : ['- Add evaluations before deriving a recommendation.'];
   }
 
   const highScore = scored[0].totalScore;

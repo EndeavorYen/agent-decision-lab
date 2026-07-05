@@ -202,6 +202,11 @@ The MVP is successful when a user can:
   happened and where to continue;
 - return to a savepoint and start another clean variant from the same recorded
   state.
+- run the common case-study workflow without manually stitching together every
+  primitive command;
+- compare qualitative no-score outcomes without implying that unscored results
+  are zero-quality results;
+- inspect ADL-owned worktrees before deciding whether to clean them up.
 
 ## Example Case Study
 

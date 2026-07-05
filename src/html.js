@@ -39,6 +39,7 @@ export function renderHtml(store, options = {}) {
     metric('Variants', countNodes(store, 'variant')),
     metric('Evaluations', store.evaluations.length),
     metric('Comparisons', store.comparisons.length),
+    metric('Artifacts', store.artifacts.artifacts.length),
     metric('Events', store.events.length),
     '</section>',
     '<section class="visual">',
@@ -46,9 +47,14 @@ export function renderHtml(store, options = {}) {
     svg,
     '</section>',
     details('Variants', variantTable(store, safe)),
+    details('Artifacts', artifactTable(store, safe)),
+    details('Qualitative Findings', qualitativeTable(store, safe)),
     details('Comparisons', comparisonTable(store, safe)),
     details('Guidance Drafts', guidanceTable(store, safe)),
+    details('Command Runs', commandRunTable(store, safe, options)),
     details('Recent Events', eventTable(store, safe, options)),
+    details('Privacy', privacyTable(store, safe, options)),
+    details('Export Freshness', freshnessTable(safe)),
     '</main>',
     '</body>',
     '</html>',
@@ -67,10 +73,26 @@ function details(title, body) {
 function variantTable(store, safe) {
   const rows = store.variants.map((variant) => {
     const evaluation = store.evaluations.find((record) => record.variantId === variant.id);
-    const score = evaluation ? totalScore(evaluation) : '';
+    const score = evaluation ? scoreLabel(evaluation) : '';
     return `<tr><td>${safe(variant.name)}</td><td><code>${safe(variant.branch)}</code></td><td>${safe(variant.savepointId ?? '')}</td><td>${score}</td></tr>`;
   });
   return table(['Variant', 'Branch', 'Savepoint', 'Score'], rows);
+}
+
+function artifactTable(store, safe) {
+  const rows = store.artifacts.artifacts.map((artifact) => {
+    const variant = store.variants.find((record) => record.id === artifact.variantId);
+    return `<tr><td><code>${safe(artifact.id)}</code></td><td>${safe(variant?.name ?? '')}</td><td>${safe(artifact.path)}</td><td>${safe(artifact.summary)}</td></tr>`;
+  });
+  return table(['Artifact', 'Variant', 'Path', 'Summary'], rows);
+}
+
+function qualitativeTable(store, safe) {
+  const rows = store.evaluations.map((evaluation) => {
+    const variant = store.variants.find((record) => record.id === evaluation.variantId);
+    return `<tr><td>${safe(variant?.name ?? evaluation.variantId)}</td><td>${safe(scoreLabel(evaluation))}</td><td>${safe(listText(evaluation.strengths))}</td><td>${safe(listText(evaluation.weaknesses))}</td><td>${safe(listText(evaluation.evidence))}</td></tr>`;
+  });
+  return table(['Variant', 'Score', 'Strengths', 'Weaknesses', 'Evidence'], rows);
 }
 
 function comparisonTable(store, safe) {
@@ -95,6 +117,31 @@ function eventTable(store, safe, options) {
   return table(['Time', 'Type', 'Variant', 'Body'], rows);
 }
 
+function commandRunTable(store, safe, options) {
+  const rows = store.events
+    .filter((event) => event.type === 'command')
+    .slice(-20)
+    .map((event) => {
+      const body = options.includePrivate ? event.body : summarize(event.body);
+      return `<tr><td>${safe(event.createdAt)}</td><td>${safe(event.variantId ?? '')}</td><td>${safe(event.metadata?.exitCode ?? '')}</td><td>${safe(body)}</td></tr>`;
+    });
+  return table(['Time', 'Variant', 'Exit', 'Command'], rows);
+}
+
+function privacyTable(store, safe, options) {
+  return table(['Setting', 'Value'], [
+    `<tr><td>Classification</td><td>${safe(store.experiment.privacy?.classification ?? 'private')}</td></tr>`,
+    `<tr><td>Redaction</td><td>${options.redact === false ? 'disabled' : 'enabled'}</td></tr>`,
+    `<tr><td>Event bodies</td><td>${options.includePrivate ? 'included' : 'summarized'}</td></tr>`,
+  ]);
+}
+
+function freshnessTable(safe) {
+  return table(['Field', 'Value'], [
+    `<tr><td>Exported at</td><td>${safe(new Date().toISOString())}</td></tr>`,
+  ]);
+}
+
 function table(headers, rows) {
   const head = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('');
   const body = rows.length > 0
@@ -108,7 +155,22 @@ function countNodes(store, type) {
 }
 
 function totalScore(evaluation) {
+  if (evaluation.noScore || Object.keys(evaluation.scores ?? {}).length === 0) {
+    return null;
+  }
   return Object.values(evaluation.scores).reduce((sum, score) => sum + score, 0);
+}
+
+function scoreLabel(evaluation) {
+  const score = totalScore(evaluation);
+  return score === null ? 'not scored' : String(score);
+}
+
+function listText(values) {
+  if (!values || values.length === 0) {
+    return '';
+  }
+  return values.join('; ');
 }
 
 function firstMeaningfulLine(markdown) {

@@ -1,5 +1,6 @@
 const pairedCommands = new Set([
   'artifact',
+  'case-study',
   'decision',
   'experiment',
   'guidance',
@@ -8,6 +9,7 @@ const pairedCommands = new Set([
   'strategy',
   'template',
   'variant',
+  'worktree',
 ]);
 
 export function parseArgs(argv) {

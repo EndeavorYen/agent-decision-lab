@@ -94,16 +94,34 @@ adl init "Improve Checkout Flow"
 adl experiment create "Bald Patch Case Study"
 adl experiment list
 adl experiment switch "Bald Patch Case Study"
-adl decision create "Context strategy" \
+adl case-study init "Review JSON Case Study" \
+  --decision "Context strategy" \
+  --savepoint "Before task" \
   --rationale "Compare guidance-visible and prompt-only runs"
-adl savepoint create "Read project guidance?" --decision context-strategy
-adl variant start guidance-first --from read-project-guidance
+adl case-study add-variant guidance-first \
+  --from before-task \
+  --context-policy guidance-visible \
+  --worktree
 adl log prompt --stdin
 adl run --variant guidance-first -- npm test
 adl checkpoint "Design approved"
-adl variant start prompt-only --from read-project-guidance --worktree
+adl case-study add-variant prompt-only \
+  --from before-task \
+  --context-policy prompt-only \
+  --worktree
+adl case-study record-result guidance-first \
+  --artifact outputs/guidance-first.patch \
+  --strengths "aligned with project guidance" \
+  --weaknesses "more setup" \
+  --evidence "npm test passed" \
+  --no-score
+adl case-study export guidance-first prompt-only \
+  --out-dir .agent-lab/exports/review-json-case
 adl variant checkout guidance-first
-adl savepoint checkout read-project-guidance --branch adl/replay/read-project-guidance
+adl savepoint checkout before-task --branch adl/replay/before-task
+adl worktree list
+adl worktree status
+adl worktree cleanup --dry-run
 adl tree
 adl export --format json --out .agent-lab/exports/latest.json
 adl export --format markdown --out .agent-lab/exports/latest.md
@@ -146,6 +164,10 @@ adl guidance draft \
 
 The template creates a decision point, a clean savepoint, and variants that fork
 from the same saved commit.
+
+Use `--no-score` when humans or later LLM review should judge the artifacts
+qualitatively. In that mode, comparison reports show `not scored`, strengths,
+weaknesses, evidence, no selected winner, and a recommended next experiment.
 
 Use `adl run --variant <name> -- <command...>` to capture real command output
 as a command event. This is useful for recording test runs, agent wrapper runs,

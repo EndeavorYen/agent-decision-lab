@@ -35,55 +35,48 @@ Strategies compared:
 Create a separate experiment in the target repository:
 
 ```bash
-adl experiment create "Multi-Agent Worktree Case Study"
-adl decision create "Choose agent collaboration strategy" \
+adl case-study init "Multi-Agent Worktree Case Study" \
+  --decision "Choose agent collaboration strategy" \
+  --savepoint "Before review JSON task" \
   --rationale "Compare how context and test-first guidance affect a small CLI change."
-adl savepoint create "Before review JSON task" \
-  --decision choose-agent-collaboration-strategy
 ```
 
 Create one clean worktree per variant from the same savepoint:
 
 ```bash
-adl variant start docs-visible \
+adl case-study add-variant docs-visible \
   --from before-review-json-task \
   --branch adl/case-study-review-json/docs-visible \
+  --context-policy docs-visible \
   --worktree \
   --worktree-path <worktree-root>/docs-visible \
   --prompt-summary "Read relevant docs before implementing."
 
-adl variant start prompt-only \
+adl case-study add-variant prompt-only \
   --from before-review-json-task \
   --branch adl/case-study-review-json/prompt-only \
+  --context-policy prompt-only \
   --worktree \
   --worktree-path <worktree-root>/prompt-only \
   --prompt-summary "Use only task-relevant code and tests."
 
-adl variant start test-first \
+adl case-study add-variant test-first \
   --from before-review-json-task \
   --branch adl/case-study-review-json/test-first \
+  --context-policy test-first \
   --worktree \
   --worktree-path <worktree-root>/test-first \
   --prompt-summary "Add the failing CLI JSON test before implementation."
 ```
 
-Record strategy metadata:
+The `case-study add-variant` command records both the variant and its strategy
+metadata. Use `adl worktree list` or `adl worktree status` to inspect registered
+worktrees:
 
 ```bash
-adl strategy set docs-visible \
-  --from before-review-json-task \
-  --context-policy docs-visible \
-  --prompt-summary "Read README and relevant docs first."
-
-adl strategy set prompt-only \
-  --from before-review-json-task \
-  --context-policy prompt-only \
-  --prompt-summary "Avoid broad docs and inspect only needed code/tests."
-
-adl strategy set test-first \
-  --from before-review-json-task \
-  --context-policy test-first \
-  --prompt-summary "Capture a red test before implementation."
+adl worktree list
+adl worktree status
+adl worktree cleanup --dry-run
 ```
 
 Give each worker agent a different prompt policy and its assigned worktree.
@@ -99,7 +92,8 @@ adl run --variant prompt-only -- npm --prefix <worktree-root>/prompt-only test
 adl run --variant test-first -- npm --prefix <worktree-root>/test-first test
 ```
 
-Store each patch as an artifact:
+Write each patch to a file. The next `case-study record-result` step registers
+the patch file as an artifact:
 
 ```bash
 git -C <worktree-root>/docs-visible diff \
@@ -108,55 +102,38 @@ git -C <worktree-root>/prompt-only diff \
   --output=.agent-lab/experiments/<experiment-id>/case-study-artifacts/prompt-only.patch
 git -C <worktree-root>/test-first diff \
   --output=.agent-lab/experiments/<experiment-id>/case-study-artifacts/test-first.patch
-
-adl artifact add patch-docs-visible \
-  --variant docs-visible \
-  --path .agent-lab/experiments/<experiment-id>/case-study-artifacts/docs-visible.patch
-adl artifact add patch-prompt-only \
-  --variant prompt-only \
-  --path .agent-lab/experiments/<experiment-id>/case-study-artifacts/prompt-only.patch
-adl artifact add patch-test-first \
-  --variant test-first \
-  --path .agent-lab/experiments/<experiment-id>/case-study-artifacts/test-first.patch
 ```
 
-Record qualitative evaluation without assigning scores:
+Record patch artifacts and qualitative evaluation without assigning scores:
 
 ```bash
-adl evaluate docs-visible \
+adl case-study record-result docs-visible \
+  --artifact .agent-lab/experiments/<experiment-id>/case-study-artifacts/docs-visible.patch \
   --strengths "smallest test diff; package-script smoke covers npm invocation" \
   --weaknesses "looser assertions; test observes current repo state" \
-  --evidence "full npm test passed; script diff +8/-2 and test diff +33"
+  --evidence "full npm test passed; script diff +8/-2 and test diff +33" \
+  --no-score
 
-adl evaluate prompt-only \
+adl case-study record-result prompt-only \
+  --artifact .agent-lab/experiments/<experiment-id>/case-study-artifacts/prompt-only.patch \
   --strengths "focused implementation; exact default Markdown and JSON assertions" \
   --weaknesses "uses repository HEAD as base; less isolated than temp fixture" \
-  --evidence "full npm test passed; script diff +8/-2 and test diff +53"
+  --evidence "full npm test passed; script diff +8/-2 and test diff +53" \
+  --no-score
 
-adl evaluate test-first \
+adl case-study record-result test-first \
+  --artifact .agent-lab/experiments/<experiment-id>/case-study-artifacts/test-first.patch \
   --strengths "captured red green sequence; isolated temp git repo test" \
   --weaknesses "largest test diff; more helper setup to maintain" \
-  --evidence "red test observed then full npm test passed; script diff +8/-2 and test diff +96/-1"
+  --evidence "red test observed then full npm test passed; script diff +8/-2 and test diff +96/-1" \
+  --no-score
 ```
 
 Create comparison, guidance, and visual exports:
 
 ```bash
-adl compare docs-visible prompt-only test-first \
-  --out .agent-lab/experiments/<experiment-id>/exports/review-json-comparison.md
-
-adl guidance draft \
-  --comparison cmp_docs_visible_vs_prompt_only_vs_test_first \
-  --out .agent-lab/experiments/<experiment-id>/exports/review-json-guidance.md
-
-adl export --format svg \
-  --out .agent-lab/experiments/<experiment-id>/exports/review-json-tree.svg
-adl export --format html \
-  --out .agent-lab/experiments/<experiment-id>/exports/review-json-report.html
-adl export --format markdown \
-  --out .agent-lab/experiments/<experiment-id>/exports/review-json-report.md
-adl export --format json \
-  --out .agent-lab/experiments/<experiment-id>/exports/review-json-export.json
+adl case-study export docs-visible prompt-only test-first \
+  --out-dir .agent-lab/experiments/<experiment-id>/exports/review-json-case
 ```
 
 ## Observations From The Live Run

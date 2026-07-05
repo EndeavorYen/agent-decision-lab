@@ -23,8 +23,9 @@ export async function draftGuidance(repoPath, input) {
 function renderGuidance(comparison) {
   const ranked = rankedVariants(comparison);
   const topVariants = leadingVariants(ranked);
-  const supported = supportedLines(topVariants);
-  const suggested = suggestedLines(comparison.variants, topVariants);
+  const hasQualitativeEvaluations = comparison.variants.some((variant) => variant.evaluation);
+  const supported = supportedLines(topVariants, hasQualitativeEvaluations);
+  const suggested = suggestedLines(comparison.variants, topVariants, hasQualitativeEvaluations);
 
   return [
     '# Agent Collaboration Guidance',
@@ -46,7 +47,7 @@ function renderGuidance(comparison) {
     '',
     '## Open Questions',
     '',
-    ...openQuestions(topVariants),
+    ...openQuestions(topVariants, hasQualitativeEvaluations),
     '',
   ].join('\n');
 }
@@ -65,9 +66,11 @@ function leadingVariants(ranked) {
   return ranked.filter((variant) => variant.totalScore === highScore);
 }
 
-function supportedLines(topVariants) {
+function supportedLines(topVariants, hasQualitativeEvaluations) {
   if (topVariants.length === 0) {
-    return ['- No strategy is supported yet. Add evaluations before turning the comparison into guidance.'];
+    return hasQualitativeEvaluations
+      ? ['- No winner selected. Use the qualitative evidence table for human or LLM review before choosing a guidance rule.']
+      : ['- No strategy is supported yet. Add evaluations before turning the comparison into guidance.'];
   }
   if (topVariants.length > 1) {
     return [`- No single strategy is supported by score alone. Tied variants: ${topVariants.map((variant) => variant.name).join(', ')}.`];
@@ -75,7 +78,10 @@ function supportedLines(topVariants) {
   return [recommendationLine(topVariants[0], 'Use')];
 }
 
-function suggestedLines(variants, topVariants) {
+function suggestedLines(variants, topVariants, hasQualitativeEvaluations) {
+  if (topVariants.length === 0 && hasQualitativeEvaluations) {
+    return ['- Recommended next experiment: rerun the most promising qualitative variants on a different task, or ask a reviewer/LLM to judge the recorded artifacts.'];
+  }
   const topIds = new Set(topVariants.map((variant) => variant.id));
   const alternatives = variants.filter((variant) => !topIds.has(variant.id));
   if (alternatives.length === 0) {
@@ -106,7 +112,13 @@ function scoreLines(ranked) {
   return [`- Score ranking: ${ranked.map((variant) => `${variant.name} ${variant.totalScore}`).join(', ')}`];
 }
 
-function openQuestions(topVariants) {
+function openQuestions(topVariants, hasQualitativeEvaluations) {
+  if (topVariants.length === 0 && hasQualitativeEvaluations) {
+    return [
+      '- Which qualitative findings should become score criteria or release gates?',
+      '- Which artifacts would make the human or LLM review less subjective?',
+    ];
+  }
   if (topVariants.length === 0) {
     return [
       '- Which rubric criteria should be recorded before a guidance draft is trusted?',

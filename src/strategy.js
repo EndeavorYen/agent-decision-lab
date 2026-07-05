@@ -77,7 +77,8 @@ export async function evaluateVariant(repoPath, input) {
     throw new Error(`Variant not found: ${input.variant}`);
   }
   const rubric = await ensureRubric(store, input.rubric ?? defaultRubric.id);
-  const scores = input.scores ?? {};
+  const noScore = input.noScore === true;
+  const scores = noScore ? {} : input.scores ?? {};
   for (const [criterion, score] of Object.entries(scores)) {
     if (typeof score !== 'number' || score < 1 || score > 5) {
       throw new Error(`Rubric score ${criterion} must be between 1 and 5`);
@@ -88,6 +89,7 @@ export async function evaluateVariant(repoPath, input) {
     id: `${variant.id}--${rubric.id}`,
     variantId: variant.id,
     rubricId: rubric.id,
+    noScore,
     scores,
     strengths: asList(input.strengths),
     weaknesses: asList(input.weaknesses),

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { parseArgs } from './args.js';
 import { compareVariants } from './compare.js';
 import { appendEvent } from './events.js';
@@ -43,6 +43,14 @@ export async function runCli(argv, io) {
         return await experimentListCommand(io);
       case 'experiment switch':
         return await experimentSwitchCommand(io, options, positionals);
+      case 'case-study init':
+        return await caseStudyInitCommand(io, options, positionals);
+      case 'case-study add-variant':
+        return await caseStudyAddVariantCommand(io, options, positionals);
+      case 'case-study record-result':
+        return await caseStudyRecordResultCommand(io, options, positionals);
+      case 'case-study export':
+        return await caseStudyExportCommand(io, options, positionals);
       case 'decision create':
         return await decisionCreateCommand(io, options, positionals);
       case 'savepoint create':
@@ -53,6 +61,12 @@ export async function runCli(argv, io) {
         return await variantStartCommand(io, options, positionals);
       case 'variant checkout':
         return await variantCheckoutCommand(io, options, positionals);
+      case 'worktree list':
+        return await worktreeListCommand(io);
+      case 'worktree status':
+        return await worktreeStatusCommand(io);
+      case 'worktree cleanup':
+        return await worktreeCleanupCommand(io, options);
       case 'strategy set':
         return await strategySetCommand(io, options, positionals);
       case 'artifact add':
@@ -146,6 +160,124 @@ async function experimentSwitchCommand(io, options, positionals) {
   return 0;
 }
 
+async function caseStudyInitCommand(io, options, positionals) {
+  const title = positionals.join(' ').trim();
+  const create = await labExists(io.cwd) ? createNewExperimentStore : createExperimentStore;
+  const experiment = await create(io.cwd, {
+    title,
+    description: options.description ?? '',
+    owner: options.owner ?? null,
+  });
+  const decision = await createDecision(io.cwd, {
+    title: options.decision ?? 'Agent collaboration strategy',
+    rationale: options.rationale ?? '',
+  });
+  const savepoint = await createSavepoint(io.cwd, {
+    title: options.savepoint ?? 'Before case-study task',
+    decision: decision.id,
+  });
+
+  write(io.stdout, [
+    `Created case study ${experiment.id}`,
+    `Decision: ${decision.id}`,
+    `Savepoint: ${savepoint.id}`,
+    '',
+  ].join('\n'));
+  return 0;
+}
+
+async function caseStudyAddVariantCommand(io, options, positionals) {
+  const name = positionals.join(' ').trim();
+  const variant = await startVariant(io.cwd, {
+    name,
+    from: options.from,
+    branch: options.branch,
+    worktreePath: options.worktreePath,
+    createBranch: true,
+    createWorktree: options.worktree === true,
+    attach: options.attach === true,
+    promptSummary: options.promptSummary ?? '',
+  });
+  const strategy = await setStrategy(io.cwd, {
+    variant: variant.id,
+    from: options.from ?? variant.savepointId,
+    contextPolicy: options.contextPolicy ?? 'unspecified',
+    promptPolicy: options.promptPolicy,
+    hypothesis: options.hypothesis,
+    risks: splitOption(options.risk ?? options.risks),
+    visibleContext: splitOption(options.visibleContext ?? options.visible),
+    withheldContext: splitOption(options.withheldContext ?? options.withheld),
+    controls: splitOption(options.controls),
+  });
+
+  write(io.stdout, [
+    `Added case-study variant ${variant.id}`,
+    `Branch: ${variant.branch}`,
+    variant.worktreePath ? `Worktree: ${variant.worktreePath}` : null,
+    `Strategy: ${strategy.id}`,
+    '',
+  ].filter(Boolean).join('\n'));
+  return 0;
+}
+
+async function caseStudyRecordResultCommand(io, options, positionals) {
+  const variant = positionals.join(' ').trim() || options.variant;
+  const artifacts = splitOption(options.artifact ?? options.artifacts);
+  for (let index = 0; index < artifacts.length; index += 1) {
+    const path = artifacts[index];
+    await addArtifact(io.cwd, {
+      id: options.artifactId ?? `artifact-${slugForOutput(variant)}-${index + 1}`,
+      variant,
+      path,
+      classification: options.classification ?? 'private',
+      visibleToAgent: options.visibleToAgent === true,
+      summary: options.summary ?? '',
+    });
+  }
+
+  const evaluation = await evaluateVariant(io.cwd, {
+    variant,
+    rubric: options.rubric ?? 'code-review-rule-quality',
+    reviewer: options.reviewer ?? 'human',
+    noScore: isNoScore(options),
+    scores: parseScores(options.scores ?? (options.score === false ? undefined : options.score)),
+    strengths: splitOption(options.strengths),
+    weaknesses: splitOption(options.weaknesses),
+    evidence: splitOption(options.evidence),
+  });
+
+  write(io.stdout, [
+    `Recorded case-study result for ${variant}`,
+    artifacts.length > 0 ? `Artifacts: ${artifacts.length}` : 'Artifacts: 0',
+    `Evaluation: ${evaluation.id}`,
+    '',
+  ].join('\n'));
+  return 0;
+}
+
+async function caseStudyExportCommand(io, options, positionals) {
+  const store = await loadCurrentStore(io.cwd);
+  const variants = positionals.length > 0 ? positionals : store.variants.map((variant) => variant.name);
+  if (variants.length < 2) {
+    throw new Error('At least two variants are required for a case-study export');
+  }
+  const outDir = options.outDir ?? `.agent-lab/experiments/${store.experiment.id}/exports/case-study`;
+  const comparison = await compareVariants(io.cwd, {
+    variants,
+    rubric: options.rubric ?? 'code-review-rule-quality',
+  });
+  await writeFileOption(io.cwd, `${outDir}/comparison.md`, comparison.markdown);
+  const guidance = await draftGuidance(io.cwd, { comparison: comparison.id });
+  await writeFileOption(io.cwd, `${outDir}/guidance.md`, guidance);
+  await exportExperiment(io.cwd, { format: 'svg', out: `${outDir}/tree.svg` });
+  await exportExperiment(io.cwd, { format: 'html', out: `${outDir}/report.html` });
+  await exportExperiment(io.cwd, { format: 'markdown', out: `${outDir}/report.md` });
+  await exportExperiment(io.cwd, { format: 'json', out: `${outDir}/export.json` });
+
+  write(io.stdout, `Wrote case-study exports to ${outDir}\n`);
+  return 0;
+}
+
 async function decisionCreateCommand(io, options, positionals) {
   const title = positionals.join(' ').trim();
   const decision = await createDecision(io.cwd, {
@@ -199,6 +331,47 @@ async function variantCheckoutCommand(io, options, positionals) {
     write(io.stdout, `Active variant ${variant.id}; use worktree ${variant.worktreePath}\n`);
   } else {
     write(io.stdout, `Checked out variant ${variant.id} on ${variant.branch}\n`);
+  }
+  return 0;
+}
+
+async function worktreeListCommand(io) {
+  const store = await loadCurrentStore(io.cwd);
+  const worktrees = await worktreeRecords(store);
+  if (worktrees.length === 0) {
+    write(io.stdout, 'No ADL worktrees recorded.\n');
+    return 0;
+  }
+  for (const record of worktrees) {
+    write(io.stdout, `${record.state} ${record.variant.name} ${record.variant.branch} ${record.path}\n`);
+  }
+  return 0;
+}
+
+async function worktreeStatusCommand(io) {
+  const store = await loadCurrentStore(io.cwd);
+  const worktrees = await worktreeRecords(store);
+  const missing = worktrees.filter((record) => record.state === 'missing');
+  write(io.stdout, [
+    `Registered worktrees: ${worktrees.length}`,
+    `Missing worktrees: ${missing.length}`,
+    '',
+  ].join('\n'));
+  return 0;
+}
+
+async function worktreeCleanupCommand(io, options) {
+  const store = await loadCurrentStore(io.cwd);
+  const worktrees = await worktreeRecords(store);
+  if (options.dryRun !== true) {
+    throw new Error('worktree cleanup currently requires --dry-run');
+  }
+  if (worktrees.length === 0) {
+    write(io.stdout, 'No ADL worktrees recorded.\n');
+    return 0;
+  }
+  for (const record of worktrees) {
+    write(io.stdout, `Would remove ${record.variant.name} ${record.path} (${record.state})\n`);
   }
   return 0;
 }
@@ -269,7 +442,8 @@ async function evaluateCommand(io, options, positionals) {
     variant,
     rubric: options.rubric ?? 'code-review-rule-quality',
     reviewer: options.reviewer ?? 'human',
-    scores: parseScores(options.scores ?? options.score),
+    noScore: isNoScore(options),
+    scores: parseScores(options.scores ?? (options.score === false ? undefined : options.score)),
     strengths: splitOption(options.strengths),
     weaknesses: splitOption(options.weaknesses),
     evidence: splitOption(options.evidence),
@@ -424,15 +598,22 @@ Usage:
   adl experiment create "Experiment Title"
   adl experiment list
   adl experiment switch experiment-title-or-id
+  adl case-study init "Case Study Title" --decision "..." --savepoint "..."
+  adl case-study add-variant variant-name --from savepoint-title-or-id [--worktree]
+  adl case-study record-result variant-name --artifact path --strengths "..." --weaknesses "..." --evidence "..." [--no-score]
+  adl case-study export variant-a variant-b [variant-c] --out-dir .agent-lab/exports/case
   adl decision create "Decision Title" --rationale "Why this fork matters" [--parent node-id]
   adl savepoint create "Read project guidance?" --decision decision-title-or-id
   adl variant start variant-name --from savepoint-title-or-id [--worktree]
   adl variant checkout variant-name
+  adl worktree list
+  adl worktree status
+  adl worktree cleanup --dry-run
   adl savepoint checkout savepoint-title-or-id [--branch branch-name]
   adl template context-ab --question "..." --decision "..." --a guidance-visible --b prompt-only [--c draft-then-compare]
   adl strategy set variant-name --from savepoint-title-or-id --context-policy policy
   adl artifact add artifact-id --variant variant-name --path path
-  adl evaluate variant-name --scores '{"alignment":5}'
+  adl evaluate variant-name --scores '{"alignment":5}' [--no-score]
   adl compare variant-a variant-b [variant-c] --out comparison.md
   adl guidance draft --comparison comparison-id --out guidance.md
   adl log prompt|response|note|command|artifact [text] [--stdin] [--variant variant-name]
@@ -474,6 +655,45 @@ async function writeFileOption(repoPath, out, body) {
   const outputPath = resolve(repoPath, out);
   await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, body);
+}
+
+async function labExists(repoPath) {
+  return await pathExists(`${repoPath}/.agent-lab/config.json`);
+}
+
+async function pathExists(path) {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function worktreeRecords(store) {
+  const records = [];
+  for (const variant of store.variants.filter((record) => record.worktreePath)) {
+    const exists = await pathExists(variant.worktreePath);
+    records.push({
+      variant,
+      path: variant.worktreePath,
+      state: exists ? 'registered' : 'missing',
+    });
+  }
+  return records;
+}
+
+function isNoScore(options) {
+  return options.noScore === true || options.score === false;
+}
+
+function slugForOutput(value) {
+  return String(value ?? 'variant')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || 'variant';
 }
 
 function splitOption(value) {

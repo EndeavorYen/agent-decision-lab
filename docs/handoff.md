@@ -16,11 +16,18 @@ Implemented commands:
 - `adl experiment create`
 - `adl experiment list`
 - `adl experiment switch`
+- `adl case-study init`
+- `adl case-study add-variant`
+- `adl case-study record-result`
+- `adl case-study export`
 - `adl decision create`
 - `adl savepoint create`
 - `adl savepoint checkout`
 - `adl variant start`
 - `adl variant checkout`
+- `adl worktree list`
+- `adl worktree status`
+- `adl worktree cleanup --dry-run`
 - `adl run`
 - `adl template context-ab`
 - `adl strategy set`
@@ -53,8 +60,15 @@ Tool is open. Experiments are private.
 The CLI supports:
 
 - `adl init`;
+- `adl case-study init`;
+- `adl case-study add-variant`;
+- `adl case-study record-result`;
+- `adl case-study export`;
 - `adl decision create`;
 - `adl variant start`;
+- `adl worktree list`;
+- `adl worktree status`;
+- `adl worktree cleanup --dry-run`;
 - `adl log prompt`;
 - `adl log response`;
 - `adl log note`;
@@ -94,12 +108,16 @@ single-binary distribution becomes the top priority.
 - Clean savepoint forking.
 - Strategy metadata, artifacts, rubrics, evaluations, comparisons, Mermaid,
   SVG, HTML tree export, and guidance drafts.
+- Qualitative no-score evaluations and comparisons for human or LLM review.
+- Case-study workflow commands that bundle the common decision/savepoint,
+  variant, result-recording, comparison, guidance, and export flow.
+- Worktree lifecycle inspection and cleanup dry-runs for ADL-owned worktrees.
 - Git branch creation and optional worktree creation.
 - Variant checkout and savepoint checkout for resuming or replaying a branch.
 - Command-run capture for recording real local runs as experiment events.
 - Dirty-tree safety outside `.agent-lab/`.
 - Tree rendering.
-- JSON, Markdown, Mermaid, SVG, and HTML export.
+- JSON, Markdown, Mermaid, SVG, and dashboard-style HTML export.
 - Summary-first exports with default redaction.
 - Local filesystem path redaction in default exports.
 - Sanitized multi-agent worktree case study documentation under

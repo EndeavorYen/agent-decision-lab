@@ -132,7 +132,7 @@ function labelLines(node, store, safe) {
   }
   const evaluation = store.evaluations.find((record) => record.variantId === node.id);
   const artifacts = store.artifacts.artifacts.filter((artifact) => artifact.variantId === node.id);
-  const score = evaluation ? `score ${totalScore(evaluation)}` : 'no score';
+  const score = evaluation ? scoreLabel(evaluation) : 'no score';
   return [
     ...wrap(`Variant: ${safe(node.name)}`, 28),
     `${score} · artifacts ${artifacts.length}`,
@@ -172,7 +172,15 @@ function count(store, type) {
 }
 
 function totalScore(evaluation) {
+  if (evaluation.noScore || Object.keys(evaluation.scores ?? {}).length === 0) {
+    return null;
+  }
   return Object.values(evaluation.scores).reduce((sum, score) => sum + score, 0);
+}
+
+function scoreLabel(evaluation) {
+  const score = totalScore(evaluation);
+  return score === null ? 'not scored' : `score ${score}`;
 }
 
 function wrap(value, width) {
