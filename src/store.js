@@ -136,7 +136,7 @@ export async function createDecision(repoPath, input) {
     type: 'decision',
     title: input.title,
     rationale: input.rationale ?? '',
-    parentId: input.parentId ?? 'root',
+    parentId: input.parentId ?? input.parent ?? 'root',
     createdAt: now,
   };
 

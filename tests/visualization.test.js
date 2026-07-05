@@ -4,7 +4,7 @@ import { cleanup, createTempGitRepo } from './helpers.js';
 import { compareVariants } from '../src/compare.js';
 import { exportExperiment } from '../src/export.js';
 import { draftGuidance } from '../src/guidance.js';
-import { createExperimentStore } from '../src/store.js';
+import { createDecision, createExperimentStore, createSavepoint, startVariant } from '../src/store.js';
 import { addArtifact, evaluateVariant } from '../src/strategy.js';
 import { createContextAbTemplate } from '../src/templates.js';
 
@@ -80,6 +80,48 @@ test('exports a Mermaid tree with decision, savepoint, variants, artifacts, eval
     assert.match(mermaid, /Evaluation: code-review-rule-quality/);
     assert.match(mermaid, /Comparison report/);
     assert.match(mermaid, /Guidance draft/);
+  } finally {
+    await cleanup(repo);
+  }
+});
+
+test('exports nested decisions under their parent variant', async () => {
+  const repo = await createTempGitRepo();
+  try {
+    await createExperimentStore(repo, { title: 'Deep Strategy Tree' });
+    const rootDecision = await createDecision(repo, {
+      title: 'Context visibility',
+      rationale: 'Pick the first context strategy',
+    });
+    const rootSavepoint = await createSavepoint(repo, {
+      title: 'Read project guidance?',
+      decision: rootDecision.id,
+    });
+    const rootVariant = await startVariant(repo, {
+      name: 'prompt-only',
+      from: rootSavepoint.id,
+      createBranch: true,
+    });
+    const nestedDecision = await createDecision(repo, {
+      title: 'Evidence check timing',
+      parentId: rootVariant.id,
+      rationale: 'Decide when to compare the prompt-only draft with evidence',
+    });
+    const nestedSavepoint = await createSavepoint(repo, {
+      title: 'Before evidence check',
+      decision: nestedDecision.id,
+    });
+    await startVariant(repo, {
+      name: 'same-turn-check',
+      from: nestedSavepoint.id,
+      createBranch: true,
+    });
+
+    const mermaid = await exportExperiment(repo, { format: 'mermaid' });
+
+    assert.match(mermaid, /var_prompt_only --> dec_evidence_check_timing/);
+    assert.match(mermaid, /dec_evidence_check_timing --> sp_before_evidence_check/);
+    assert.match(mermaid, /sp_before_evidence_check --> var_same_turn_check/);
   } finally {
     await cleanup(repo);
   }

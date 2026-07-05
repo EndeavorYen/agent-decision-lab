@@ -105,7 +105,7 @@ async function decisionCreateCommand(io, options, positionals) {
   const decision = await createDecision(io.cwd, {
     title,
     rationale: options.rationale ?? '',
-    parentId: options.parent ?? undefined,
+    parentId: options.parent ?? options.parentId ?? undefined,
   });
   write(io.stdout, `Created decision ${decision.id}\n`);
   return 0;
@@ -314,7 +314,7 @@ function helpText() {
 Usage:
   adl init "Experiment Title"
   adl status
-  adl decision create "Decision Title" --rationale "Why this fork matters"
+  adl decision create "Decision Title" --rationale "Why this fork matters" [--parent node-id]
   adl savepoint create "Read project guidance?" --decision decision-title-or-id
   adl variant start variant-name --from savepoint-title-or-id [--worktree]
   adl template context-ab --question "..." --decision "..." --a guidance-visible --b prompt-only [--c draft-then-compare]

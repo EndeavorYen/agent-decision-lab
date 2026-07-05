@@ -10,7 +10,8 @@ export async function renderMermaid(repoPath) {
   for (const node of store.tree.nodes) {
     if (node.type === 'decision') {
       addDecision(lines, nodeIds, node.id, `Decision: ${node.title}`);
-      lines.push(`  experiment --> ${safeId(node.id)}`);
+      const parentId = node.parentId && node.parentId !== 'root' ? node.parentId : 'experiment';
+      lines.push(`  ${safeId(parentId)} --> ${safeId(node.id)}`);
     }
     if (node.type === 'savepoint') {
       addSavepoint(lines, nodeIds, node.id, `Savepoint: ${node.title}`);
