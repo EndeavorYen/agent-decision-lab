@@ -96,11 +96,15 @@ adl decision create "Context strategy" \
 adl savepoint create "Read project guidance?" --decision context-strategy
 adl variant start guidance-first --from read-project-guidance
 adl log prompt --stdin
+adl run --variant guidance-first -- npm test
 adl checkpoint "Design approved"
 adl variant start prompt-only --from read-project-guidance --worktree
+adl variant checkout guidance-first
+adl savepoint checkout read-project-guidance --branch adl/replay/read-project-guidance
 adl tree
 adl export --format json --out .agent-lab/exports/latest.json
 adl export --format markdown --out .agent-lab/exports/latest.md
+adl export --format html --out .agent-lab/exports/report.html
 ```
 
 The CLI stores records under `.agent-lab/` in the target repository. Event
@@ -123,6 +127,8 @@ adl template context-ab \
 adl evaluate guidance-visible --scores '{"alignment":5,"specificity":4}'
 adl compare guidance-visible prompt-only draft-then-compare --out .agent-lab/exports/comparison.md
 adl export --format mermaid --out .agent-lab/exports/tree.mmd
+adl export --format svg --out .agent-lab/exports/tree.svg
+adl export --format html --out .agent-lab/exports/report.html
 adl guidance draft \
   --comparison cmp_guidance_visible_vs_prompt_only_vs_draft_then_compare \
   --out .agent-lab/exports/guidance.md
@@ -130,6 +136,10 @@ adl guidance draft \
 
 The template creates a decision point, a clean savepoint, and variants that fork
 from the same saved commit.
+
+Use `adl run --variant <name> -- <command...>` to capture real command output
+as a command event. This is useful for recording test runs, agent wrapper runs,
+or local review scripts without depending on a specific model provider.
 
 ## Documentation
 

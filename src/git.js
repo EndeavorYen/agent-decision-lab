@@ -58,6 +58,18 @@ export function createBranch(repoPath, branch, startPoint) {
   git(repoPath, ['branch', branch, startPoint]);
 }
 
+export function checkoutBranch(repoPath, branch) {
+  git(repoPath, ['checkout', branch]);
+}
+
+export function checkoutNewBranch(repoPath, branch, startPoint) {
+  if (branchExists(repoPath, branch)) {
+    checkoutBranch(repoPath, branch);
+  } else {
+    git(repoPath, ['checkout', '-b', branch, startPoint]);
+  }
+}
+
 export function createWorktree(repoPath, worktreePath, branch, startPoint) {
   if (branchExists(repoPath, branch)) {
     git(repoPath, ['worktree', 'add', worktreePath, branch]);

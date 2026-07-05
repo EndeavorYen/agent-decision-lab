@@ -15,7 +15,10 @@ Implemented commands:
 - `adl status`
 - `adl decision create`
 - `adl savepoint create`
+- `adl savepoint checkout`
 - `adl variant start`
+- `adl variant checkout`
+- `adl run`
 - `adl template context-ab`
 - `adl strategy set`
 - `adl artifact add`
@@ -85,12 +88,14 @@ single-binary distribution becomes the top priority.
 - Append-only event logging in `events.jsonl`.
 - Decision and variant lifecycle.
 - Clean savepoint forking.
-- Strategy metadata, artifacts, rubrics, evaluations, comparisons, Mermaid tree
-  export, and guidance drafts.
+- Strategy metadata, artifacts, rubrics, evaluations, comparisons, Mermaid,
+  SVG, HTML tree export, and guidance drafts.
 - Git branch creation and optional worktree creation.
+- Variant checkout and savepoint checkout for resuming or replaying a branch.
+- Command-run capture for recording real local runs as experiment events.
 - Dirty-tree safety outside `.agent-lab/`.
 - Tree rendering.
-- JSON and Markdown export.
+- JSON, Markdown, Mermaid, SVG, and HTML export.
 - Summary-first exports with default redaction.
 - Temporary Git repository tests and live smoke script.
 
@@ -105,6 +110,8 @@ single-binary distribution becomes the top priority.
   implementation says no; `--include-private` is required.
 - Should branch/worktree paths be configurable globally, per repo, or per
   experiment?
+- Should future agent adapters use `adl run` as their event-capture primitive,
+  or write richer provider-specific event records?
 
 ## First Example Run
 

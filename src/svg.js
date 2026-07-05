@@ -1,8 +1,11 @@
-export function renderSvg(store) {
+import { redactText } from './redact.js';
+
+export function renderSvg(store, options = {}) {
+  const safe = (value) => options.redact === false ? String(value ?? '') : redactText(value);
   const root = {
     id: 'experiment',
     type: 'experiment',
-    title: store.experiment.title,
+    title: safe(store.experiment.title),
     parentId: null,
   };
   const nodes = [root, ...store.tree.nodes];
@@ -34,14 +37,14 @@ export function renderSvg(store) {
   const lines = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="title desc">`,
     '<title id="title">Agent Decision Lab Experiment Tree</title>',
-    `<desc id="desc">${escapeXml(store.experiment.title)} decision tree with savepoints and variants.</desc>`,
+    `<desc id="desc">${escapeXml(safe(store.experiment.title))} decision tree with savepoints and variants.</desc>`,
     '<defs>',
     '<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">',
     '<path d="M0,0 L0,6 L9,3 z" fill="#5b6472"/>',
     '</marker>',
     '</defs>',
     '<rect width="100%" height="100%" fill="#f7f8fb"/>',
-    `<text x="${marginX}" y="34" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#1f2933">${escapeXml(store.experiment.title)}</text>`,
+    `<text x="${marginX}" y="34" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#1f2933">${escapeXml(safe(store.experiment.title))}</text>`,
     `<text x="${marginX}" y="58" font-family="Arial, sans-serif" font-size="13" fill="#53606f">Decisions ${count(store, 'decision')} · Savepoints ${count(store, 'savepoint')} · Variants ${count(store, 'variant')} · Evaluations ${store.evaluations.length} · Comparisons ${store.comparisons.length}</text>`,
   ];
 
@@ -51,7 +54,7 @@ export function renderSvg(store) {
   }
 
   for (const node of nodes) {
-    drawNode(lines, node, absolutePosition(node.id), { nodeWidth, nodeHeight, store });
+    drawNode(lines, node, absolutePosition(node.id), { nodeWidth, nodeHeight, store, safe });
   }
 
   drawLegend(lines, width - 450, height - 54);
@@ -87,11 +90,11 @@ function drawEdge(lines, from, to) {
 }
 
 function drawNode(lines, node, position, options) {
-  const { nodeWidth, nodeHeight, store } = options;
+  const { nodeWidth, nodeHeight, store, safe } = options;
   const x = position.x - nodeWidth / 2;
   const y = position.y - nodeHeight / 2;
   const style = nodeStyle(node.type);
-  const labels = labelLines(node, store);
+  const labels = labelLines(node, store, safe);
 
   if (node.type === 'decision') {
     const points = [
@@ -116,22 +119,22 @@ function drawNode(lines, node, position, options) {
   lines.push('</text>');
 }
 
-function labelLines(node, store) {
+function labelLines(node, store, safe) {
   if (node.type === 'experiment') {
-    return wrap(`Experiment: ${node.title}`, 30);
+    return wrap(`Experiment: ${safe(node.title)}`, 30);
   }
   if (node.type === 'decision') {
-    return wrap(`Decision: ${node.title}`, 28);
+    return wrap(`Decision: ${safe(node.title)}`, 28);
   }
   if (node.type === 'savepoint') {
     const commit = node.git?.commit ? ` @ ${node.git.commit.slice(0, 7)}` : '';
-    return wrap(`Savepoint: ${node.title}${commit}`, 28);
+    return wrap(`Savepoint: ${safe(node.title)}${commit}`, 28);
   }
   const evaluation = store.evaluations.find((record) => record.variantId === node.id);
   const artifacts = store.artifacts.artifacts.filter((artifact) => artifact.variantId === node.id);
   const score = evaluation ? `score ${totalScore(evaluation)}` : 'no score';
   return [
-    ...wrap(`Variant: ${node.name}`, 28),
+    ...wrap(`Variant: ${safe(node.name)}`, 28),
     `${score} · artifacts ${artifacts.length}`,
   ];
 }

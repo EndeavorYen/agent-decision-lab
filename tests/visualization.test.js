@@ -166,3 +166,63 @@ test('exports a standalone SVG tree for visual inspection', async () => {
     await cleanup(repo);
   }
 });
+
+test('exports a standalone HTML report with embedded visual tree', async () => {
+  const repo = await createTempGitRepo();
+  try {
+    await createExperimentStore(repo, { title: 'HTML Strategy Report' });
+    const decision = await createDecision(repo, {
+      title: 'Context visibility',
+      rationale: 'Pick the first context strategy',
+    });
+    const savepoint = await createSavepoint(repo, {
+      title: 'Read project guidance?',
+      decision: decision.id,
+    });
+    await startVariant(repo, {
+      name: 'prompt-only',
+      from: savepoint.id,
+      createBranch: true,
+    });
+
+    const html = await exportExperiment(repo, { format: 'html' });
+
+    assert.match(html, /^<!doctype html>/);
+    assert.match(html, /HTML Strategy Report/);
+    assert.match(html, /<svg /);
+    assert.match(html, /Variant: prompt-only/);
+    assert.match(html, /Decision Tree/);
+  } finally {
+    await cleanup(repo);
+  }
+});
+
+test('redacts sensitive text from SVG and HTML visual exports by default', async () => {
+  const repo = await createTempGitRepo();
+  try {
+    await createExperimentStore(repo, { title: 'Secret Bearer fake-token-for-redaction-test' });
+    const decision = await createDecision(repo, {
+      title: 'Context visibility',
+      rationale: 'Pick the first context strategy',
+    });
+    const savepoint = await createSavepoint(repo, {
+      title: 'Read project guidance?',
+      decision: decision.id,
+    });
+    await startVariant(repo, {
+      name: 'prompt-only',
+      from: savepoint.id,
+      createBranch: true,
+    });
+
+    const svg = await exportExperiment(repo, { format: 'svg' });
+    const html = await exportExperiment(repo, { format: 'html' });
+
+    assert.doesNotMatch(svg, /fake-token-for-redaction-test/);
+    assert.doesNotMatch(html, /fake-token-for-redaction-test/);
+    assert.match(svg, /\[REDACTED/);
+    assert.match(html, /\[REDACTED/);
+  } finally {
+    await cleanup(repo);
+  }
+});

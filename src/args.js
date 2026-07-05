@@ -25,6 +25,10 @@ export function parseArgs(argv) {
 
   for (let index = 0; index < rest.length; index += 1) {
     const token = rest[index];
+    if (token === '--') {
+      positionals.push(...rest.slice(index + 1));
+      break;
+    }
     if (!token.startsWith('--')) {
       positionals.push(token);
       continue;

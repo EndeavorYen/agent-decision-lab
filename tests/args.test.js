@@ -25,3 +25,19 @@ test('parses stdin flag and leaves log body as a positional', () => {
   assert.deepEqual(parsed.positionals, ['Design approved']);
   assert.equal(parsed.options.stdin, true);
 });
+
+test('parses command arguments after a delimiter as positionals', () => {
+  const parsed = parseArgs([
+    'run',
+    '--variant',
+    'prompt-only',
+    '--',
+    'node',
+    '-e',
+    'console.log("ok")',
+  ]);
+
+  assert.deepEqual(parsed.command, ['run']);
+  assert.equal(parsed.options.variant, 'prompt-only');
+  assert.deepEqual(parsed.positionals, ['node', '-e', 'console.log("ok")']);
+});

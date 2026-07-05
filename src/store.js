@@ -2,6 +2,8 @@ import { access, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import {
   branchExists,
+  checkoutBranch,
+  checkoutNewBranch,
   createBranch,
   createWorktree,
   dirtyPathsOutsideLab,
@@ -299,6 +301,48 @@ export async function startVariant(repoPath, input) {
   await writeJson(store.paths.configPath, store.config);
 
   return variant;
+}
+
+export async function checkoutVariant(repoPath, input) {
+  const store = await loadCurrentStore(repoPath);
+  const variant = findVariant(store, input.variant ?? input.name);
+  if (!variant) {
+    throw new Error(`Variant not found: ${input.variant ?? input.name}`);
+  }
+
+  const dirty = dirtyPathsOutsideLab(repoPath);
+  if (!input.force && dirty.length > 0) {
+    throw new Error(
+      `Cannot checkout variant with uncommitted changes outside .agent-lab: ${dirty.join(', ')}`,
+    );
+  }
+
+  if (!variant.worktreePath) {
+    checkoutBranch(repoPath, variant.branch);
+  }
+  store.config.activeVariantId = variant.id;
+  await saveConfig(store);
+  return variant;
+}
+
+export async function checkoutSavepoint(repoPath, input) {
+  const store = await loadCurrentStore(repoPath);
+  const savepoint = findSavepoint(store, input.savepoint ?? input.name);
+  if (!savepoint) {
+    throw new Error(`Savepoint not found: ${input.savepoint ?? input.name}`);
+  }
+  const dirty = dirtyPathsOutsideLab(repoPath);
+  if (!input.force && dirty.length > 0) {
+    throw new Error(
+      `Cannot checkout savepoint with uncommitted changes outside .agent-lab: ${dirty.join(', ')}`,
+    );
+  }
+
+  const branch = input.branch ?? `adl/${slugify(store.experiment.title)}/savepoints/${slugify(savepoint.title)}`;
+  checkoutNewBranch(repoPath, branch, savepoint.git.commit);
+  store.config.activeVariantId = null;
+  await saveConfig(store);
+  return { savepoint, branch };
 }
 
 export async function saveConfig(store) {

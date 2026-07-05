@@ -154,3 +154,6 @@ The MVP test suite should prove that:
 - a user can resume an experiment after closing the terminal;
 - a user can return to a savepoint and fork another clean variant from the same
   recorded state.
+- a user can checkout a recorded variant branch;
+- a user can capture a real command run under a variant;
+- a user can export a standalone HTML or SVG visual report.

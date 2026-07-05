@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { redactText } from './redact.js';
 import { renderTree } from './render.js';
 import { renderMermaid } from './graph.js';
+import { renderHtml } from './html.js';
 import { loadCurrentStore } from './store.js';
 import { renderSvg } from './svg.js';
 
@@ -29,11 +30,19 @@ export async function exportExperiment(repoPath, options = {}) {
   }
 
   if (format === 'svg') {
-    const svg = renderSvg(store);
+    const svg = renderSvg(store, { redact });
     if (options.out) {
       await writeOutput(repoPath, options.out, svg);
     }
     return svg;
+  }
+
+  if (format === 'html') {
+    const html = renderHtml(store, { includePrivate, redact });
+    if (options.out) {
+      await writeOutput(repoPath, options.out, html);
+    }
+    return html;
   }
 
   if (format !== 'json') {

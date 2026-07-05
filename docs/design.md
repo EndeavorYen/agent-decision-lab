@@ -241,6 +241,21 @@ Manual logging is enough for MVP. Agent adapters can automate this later.
 adl tree
 adl export --format markdown --out .agent-lab/exports/latest.md
 adl export --format json --out .agent-lab/exports/latest.json
+adl export --format svg --out .agent-lab/exports/tree.svg
+adl export --format html --out .agent-lab/exports/report.html
+```
+
+Command output can be captured without a model-provider dependency:
+
+```bash
+adl run --variant prompt-only -- npm test
+```
+
+To resume or replay work:
+
+```bash
+adl variant checkout prompt-only
+adl savepoint checkout read-project-guidance --branch adl/replay/read-project-guidance
 ```
 
 ## Branch and Worktree Strategy
@@ -267,6 +282,8 @@ The Git manager must:
 - record base commit and current commit;
 - avoid deleting worktrees or branches without explicit confirmation;
 - support attaching an existing branch or worktree;
+- support checking out a recorded variant branch;
+- support creating or checking out a branch from a savepoint commit;
 - expose enough status to recover from interrupted runs.
 
 Returning to a savepoint must not rewrite or discard the current path. It should

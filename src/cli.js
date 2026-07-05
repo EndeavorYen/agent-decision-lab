@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { parseArgs } from './args.js';
 import { compareVariants } from './compare.js';
@@ -9,6 +10,8 @@ import {
   createDecision,
   createExperimentStore,
   createSavepoint,
+  checkoutSavepoint,
+  checkoutVariant,
   findVariant,
   loadCurrentStore,
   startVariant,
@@ -35,8 +38,12 @@ export async function runCli(argv, io) {
         return await decisionCreateCommand(io, options, positionals);
       case 'savepoint create':
         return await savepointCreateCommand(io, options, positionals);
+      case 'savepoint checkout':
+        return await savepointCheckoutCommand(io, options, positionals);
       case 'variant start':
         return await variantStartCommand(io, options, positionals);
+      case 'variant checkout':
+        return await variantCheckoutCommand(io, options, positionals);
       case 'strategy set':
         return await strategySetCommand(io, options, positionals);
       case 'artifact add':
@@ -62,6 +69,8 @@ export async function runCli(argv, io) {
         return 0;
       case 'export':
         return await exportCommand(io, options);
+      case 'run':
+        return await runCommand(io, options, positionals);
       default:
         throw new Error(`Unknown command: ${name}`);
     }
@@ -140,6 +149,31 @@ async function variantStartCommand(io, options, positionals) {
   if (variant.worktreePath) {
     write(io.stdout, `Worktree: ${variant.worktreePath}\n`);
   }
+  return 0;
+}
+
+async function variantCheckoutCommand(io, options, positionals) {
+  const name = positionals.join(' ').trim() || options.variant;
+  const variant = await checkoutVariant(io.cwd, {
+    variant: name,
+    force: options.force === true,
+  });
+  if (variant.worktreePath) {
+    write(io.stdout, `Active variant ${variant.id}; use worktree ${variant.worktreePath}\n`);
+  } else {
+    write(io.stdout, `Checked out variant ${variant.id} on ${variant.branch}\n`);
+  }
+  return 0;
+}
+
+async function savepointCheckoutCommand(io, options, positionals) {
+  const name = positionals.join(' ').trim() || options.savepoint;
+  const result = await checkoutSavepoint(io.cwd, {
+    savepoint: name,
+    branch: options.branch,
+    force: options.force === true,
+  });
+  write(io.stdout, `Checked out savepoint ${result.savepoint.id} on ${result.branch}\n`);
   return 0;
 }
 
@@ -247,6 +281,42 @@ async function logCommand(io, type, options, positionals) {
   return 0;
 }
 
+async function runCommand(io, options, positionals) {
+  if (positionals.length === 0) {
+    throw new Error('Command is required after --');
+  }
+  const variantId = options.variant ? await resolveVariantId(io.cwd, options.variant) : undefined;
+  const result = spawnSync(positionals[0], positionals.slice(1), {
+    cwd: io.cwd,
+    encoding: 'utf8',
+  });
+  const exitCode = result.status ?? 1;
+  const event = await appendEvent(io.cwd, {
+    type: 'command',
+    body: renderCommandEventBody(positionals, result, exitCode),
+    variantId,
+    actor: options.actor ?? 'agent',
+    metadata: {
+      command: positionals,
+      exitCode,
+      signal: result.signal ?? null,
+      error: result.error ? {
+        name: result.error.name,
+        code: result.error.code,
+        message: result.error.message,
+      } : null,
+    },
+  });
+  if (result.stdout) {
+    write(io.stdout, result.stdout);
+  }
+  if (result.stderr) {
+    write(io.stderr, result.stderr);
+  }
+  write(io.stdout, `Recorded command ${event.id} exit ${exitCode}\n`);
+  return exitCode;
+}
+
 async function checkpointCommand(io, options, positionals) {
   const body = await eventBody(io, options, positionals);
   const event = await appendEvent(io.cwd, {
@@ -317,6 +387,8 @@ Usage:
   adl decision create "Decision Title" --rationale "Why this fork matters" [--parent node-id]
   adl savepoint create "Read project guidance?" --decision decision-title-or-id
   adl variant start variant-name --from savepoint-title-or-id [--worktree]
+  adl variant checkout variant-name
+  adl savepoint checkout savepoint-title-or-id [--branch branch-name]
   adl template context-ab --question "..." --decision "..." --a guidance-visible --b prompt-only [--c draft-then-compare]
   adl strategy set variant-name --from savepoint-title-or-id --context-policy policy
   adl artifact add artifact-id --variant variant-name --path path
@@ -326,9 +398,30 @@ Usage:
   adl log prompt|response|note|command|artifact [text] [--stdin] [--variant variant-name]
   adl checkpoint "Checkpoint name"
   adl tree
-  adl export --format json|markdown|mermaid|svg [--out path] [--include-private] [--no-redact]
+  adl run [--variant variant-name] -- command args...
+  adl export --format json|markdown|mermaid|svg|html [--out path] [--include-private] [--no-redact]
 
 `;
+}
+
+function renderCommandEventBody(command, result, exitCode) {
+  return [
+    `$ ${quoteCommand(command)}`,
+    `exit: ${exitCode}`,
+    result.error ? `spawn error: ${result.error.message}` : null,
+    '',
+    'stdout:',
+    result.stdout?.trimEnd() ?? '',
+    '',
+    'stderr:',
+    result.stderr?.trimEnd() ?? '',
+  ].filter((line) => line !== null).join('\n');
+}
+
+function quoteCommand(command) {
+  return command.map((part) => (
+    /[\s"']/.test(part) ? JSON.stringify(part) : part
+  )).join(' ');
 }
 
 function write(stream, value) {
