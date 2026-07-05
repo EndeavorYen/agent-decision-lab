@@ -1,10 +1,11 @@
-import { access, mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { access, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import {
   branchExists,
   createBranch,
   createWorktree,
   dirtyPathsOutsideLab,
+  getCurrentBranch,
   getCurrentCommit,
   getRepoMetadata,
 } from './git.js';
@@ -42,6 +43,11 @@ export async function createExperimentStore(repoPath, input) {
   };
 
   await mkdir(join(experimentDir, 'variants'), { recursive: true });
+  await mkdir(join(experimentDir, 'savepoints'), { recursive: true });
+  await mkdir(join(experimentDir, 'strategies'), { recursive: true });
+  await mkdir(join(experimentDir, 'rubrics'), { recursive: true });
+  await mkdir(join(experimentDir, 'evaluations'), { recursive: true });
+  await mkdir(join(experimentDir, 'comparisons'), { recursive: true });
   await mkdir(join(experimentDir, 'exports'), { recursive: true });
   await writeJson(configPath, {
     schemaVersion,
@@ -79,7 +85,13 @@ export async function loadCurrentStore(repoPath) {
     artifactsPath: join(experimentDir, 'artifacts.json'),
     eventsPath: join(experimentDir, 'events.jsonl'),
     variantsDir: join(experimentDir, 'variants'),
+    savepointsDir: join(experimentDir, 'savepoints'),
+    strategiesDir: join(experimentDir, 'strategies'),
+    rubricsDir: join(experimentDir, 'rubrics'),
+    evaluationsDir: join(experimentDir, 'evaluations'),
+    comparisonsDir: join(experimentDir, 'comparisons'),
     exportsDir: join(experimentDir, 'exports'),
+    guidancePath: join(experimentDir, 'exports', 'guidance.json'),
   };
 
   const experiment = await readJson(paths.experimentPath);
@@ -87,8 +99,29 @@ export async function loadCurrentStore(repoPath) {
   const artifacts = await readJson(paths.artifactsPath);
   const events = await readEvents(paths.eventsPath);
   const variants = await readVariants(paths.variantsDir);
+  const savepoints = await readJsonDir(paths.savepointsDir);
+  const strategies = await readJsonDir(paths.strategiesDir);
+  const rubrics = await readJsonDir(paths.rubricsDir);
+  const evaluations = await readJsonDir(paths.evaluationsDir);
+  const comparisons = await readJsonDir(paths.comparisonsDir);
+  const guidanceDrafts = await readOptionalRecord(paths.guidancePath);
 
-  return { repoPath, paths, config, experiment, tree, artifacts, events, variants };
+  return {
+    repoPath,
+    paths,
+    config,
+    experiment,
+    tree,
+    artifacts,
+    events,
+    variants,
+    savepoints,
+    strategies,
+    rubrics,
+    evaluations,
+    comparisons,
+    guidanceDrafts,
+  };
 }
 
 export async function createDecision(repoPath, input) {
@@ -112,9 +145,9 @@ export async function createDecision(repoPath, input) {
   return decision;
 }
 
-export async function startVariant(repoPath, input) {
-  if (!input?.name) {
-    throw new Error('Variant name is required');
+export async function createSavepoint(repoPath, input) {
+  if (!input?.title) {
+    throw new Error('Savepoint title is required');
   }
   const store = await loadCurrentStore(repoPath);
   const decision = resolveDecision(store.tree.nodes, input.decision);
@@ -122,9 +155,78 @@ export async function startVariant(repoPath, input) {
     throw new Error(`Decision not found: ${input.decision}`);
   }
 
+  const dirty = dirtyPathsOutsideLab(repoPath);
+  const forkable = input.forkable ?? true;
+  if (forkable && dirty.length > 0) {
+    throw new Error(
+      `Cannot create forkable savepoint with uncommitted changes outside .agent-lab: ${dirty.join(', ')}`,
+    );
+  }
+
+  const id = uniqueNodeId(store.tree.nodes, makeNodeId('sp', input.title));
+  const now = new Date().toISOString();
+  const savepoint = {
+    id,
+    type: 'savepoint',
+    decisionId: decision.id,
+    title: input.title,
+    rationale: input.rationale ?? '',
+    git: {
+      commit: getCurrentCommit(repoPath),
+      branch: getCurrentBranch(repoPath),
+      isDirty: dirty.length > 0,
+    },
+    context: {
+      policy: input.contextPolicy ?? 'pre-decision',
+      artifacts: input.artifactRefs ?? [],
+    },
+    parentId: decision.id,
+    parentVariantId: input.parentVariantId ?? store.config.activeVariantId ?? null,
+    forkable: forkable && dirty.length === 0,
+    createdAt: now,
+  };
+
+  store.tree.nodes.push({
+    id: savepoint.id,
+    type: 'savepoint',
+    decisionId: savepoint.decisionId,
+    parentId: savepoint.parentId,
+    title: savepoint.title,
+    git: savepoint.git,
+    forkable: savepoint.forkable,
+    createdAt: savepoint.createdAt,
+  });
+
+  await writeJson(join(store.paths.savepointsDir, `${savepoint.id}.json`), savepoint);
+  await writeJson(store.paths.treePath, store.tree);
+  return savepoint;
+}
+
+export async function startVariant(repoPath, input) {
+  if (!input?.name) {
+    throw new Error('Variant name is required');
+  }
+  const store = await loadCurrentStore(repoPath);
+  const savepoint = input.from || input.savepointId
+    ? resolveSavepoint(store.savepoints, input.from ?? input.savepointId)
+    : null;
+  if ((input.from || input.savepointId) && !savepoint) {
+    throw new Error(`Savepoint not found: ${input.from ?? input.savepointId}`);
+  }
+  if (savepoint && !savepoint.forkable) {
+    throw new Error(`Savepoint is not cleanly forkable: ${savepoint.id}`);
+  }
+
+  const decision = savepoint
+    ? resolveDecision(store.tree.nodes, savepoint.decisionId)
+    : resolveDecision(store.tree.nodes, input.decision);
+  if (!decision) {
+    throw new Error(`Decision not found: ${input.decision}`);
+  }
+
   const createBranchRequested = input.createBranch ?? true;
   const createWorktreeRequested = input.createWorktree ?? false;
-  if ((createBranchRequested || createWorktreeRequested) && !input.attach) {
+  if (!savepoint && (createBranchRequested || createWorktreeRequested) && !input.attach) {
     const dirty = dirtyPathsOutsideLab(repoPath);
     if (dirty.length > 0) {
       throw new Error(
@@ -137,7 +239,7 @@ export async function startVariant(repoPath, input) {
   const variantSlug = slugify(input.name);
   const experimentSlug = slugify(store.experiment.title);
   const branch = input.branch ?? `adl/${experimentSlug}/${variantSlug}`;
-  const baseCommit = input.baseCommit ?? store.experiment.baseRepository.baseCommit;
+  const baseCommit = input.baseCommit ?? savepoint?.git?.commit ?? store.experiment.baseRepository.baseCommit;
   let worktreePath = input.worktreePath ? resolve(repoPath, input.worktreePath) : null;
 
   if (input.attach) {
@@ -165,14 +267,15 @@ export async function startVariant(repoPath, input) {
     id,
     type: 'variant',
     decisionId: decision.id,
-    parentId: decision.id,
+    savepointId: savepoint?.id ?? null,
+    parentId: savepoint?.id ?? decision.id,
     name: input.name,
     promptSummary: input.promptSummary ?? '',
     branch,
     worktreePath,
     baseCommit,
     currentCommit: getCurrentCommit(repoPath, branch),
-    parentVariantId: store.config.activeVariantId,
+    parentVariantId: savepoint ? savepoint.parentVariantId ?? null : store.config.activeVariantId,
     status: 'active',
     createdAt: now,
   };
@@ -181,6 +284,7 @@ export async function startVariant(repoPath, input) {
     id: variant.id,
     type: 'variant',
     decisionId: variant.decisionId,
+    savepointId: variant.savepointId,
     parentId: variant.parentId,
     name: variant.name,
     branch: variant.branch,
@@ -211,6 +315,23 @@ export async function readJson(path) {
   return JSON.parse(await readFile(path, 'utf8'));
 }
 
+export function findVariant(store, value) {
+  if (!value) {
+    return null;
+  }
+  const normalized = slugify(value);
+  return store.variants.find((variant) => (
+    variant.id === value
+    || variant.name === value
+    || slugify(variant.name) === normalized
+    || variant.id === `var_${normalized}`
+  )) ?? null;
+}
+
+export function findSavepoint(store, value) {
+  return resolveSavepoint(store.savepoints, value);
+}
+
 async function readEvents(path) {
   const body = await readFile(path, 'utf8');
   return body
@@ -220,15 +341,26 @@ async function readEvents(path) {
 }
 
 async function readVariants(path) {
+  return readJsonDir(path);
+}
+
+async function readJsonDir(path) {
   if (!await exists(path)) {
     return [];
   }
   const files = (await readdir(path)).filter((file) => file.endsWith('.json')).sort();
-  const variants = [];
+  const records = [];
   for (const file of files) {
-    variants.push(await readJson(join(path, file)));
+    records.push(await readJson(join(path, file)));
   }
-  return variants;
+  return records;
+}
+
+async function readOptionalRecord(path) {
+  if (!await exists(path)) {
+    return [];
+  }
+  return [await readJson(path)];
 }
 
 async function uniqueExperimentId(repoPath, title) {
@@ -264,6 +396,18 @@ function resolveDecision(nodes, value) {
     }
     return node.id === value || node.id === `dec_${normalized}` || slugify(node.title) === normalized;
   }) ?? null;
+}
+
+function resolveSavepoint(savepoints, value) {
+  if (!value) {
+    return null;
+  }
+  const normalized = slugify(value);
+  return savepoints.find((savepoint) => (
+    savepoint.id === value
+    || savepoint.id === `sp_${normalized}`
+    || slugify(savepoint.title) === normalized
+  )) ?? null;
 }
 
 async function exists(path) {

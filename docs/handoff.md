@@ -14,7 +14,14 @@ Implemented commands:
 - `adl init`
 - `adl status`
 - `adl decision create`
+- `adl savepoint create`
 - `adl variant start`
+- `adl template context-ab`
+- `adl strategy set`
+- `adl artifact add`
+- `adl evaluate`
+- `adl compare`
+- `adl guidance draft`
 - `adl log prompt`
 - `adl log response`
 - `adl log note`
@@ -77,6 +84,9 @@ single-binary distribution becomes the top priority.
 - Store initialization under `.agent-lab/`.
 - Append-only event logging in `events.jsonl`.
 - Decision and variant lifecycle.
+- Clean savepoint forking.
+- Strategy metadata, artifacts, rubrics, evaluations, comparisons, Mermaid tree
+  export, and guidance drafts.
 - Git branch creation and optional worktree creation.
 - Dirty-tree safety outside `.agent-lab/`.
 - Tree rendering.

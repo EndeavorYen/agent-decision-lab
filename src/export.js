@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { redactText } from './redact.js';
 import { renderTree } from './render.js';
+import { renderMermaid } from './graph.js';
 import { loadCurrentStore } from './store.js';
 
 export async function exportExperiment(repoPath, options = {}) {
@@ -16,6 +17,14 @@ export async function exportExperiment(repoPath, options = {}) {
       await writeOutput(repoPath, options.out, markdown);
     }
     return markdown;
+  }
+
+  if (format === 'mermaid') {
+    const mermaid = await renderMermaid(repoPath);
+    if (options.out) {
+      await writeOutput(repoPath, options.out, mermaid);
+    }
+    return mermaid;
   }
 
   if (format !== 'json') {
@@ -41,7 +50,12 @@ function buildJsonBundle(store, options) {
       includeEventBodies: options.includePrivate,
     },
     tree: cleanObject(store.tree, options),
+    savepoints: store.savepoints.map((savepoint) => cleanObject(savepoint, options)),
     variants: store.variants.map((variant) => cleanObject(variant, options)),
+    strategies: store.strategies.map((strategy) => cleanObject(strategy, options)),
+    evaluations: store.evaluations.map((evaluation) => cleanObject(evaluation, options)),
+    comparisons: store.comparisons.map((comparison) => cleanObject(comparison, options)),
+    guidanceDrafts: store.guidanceDrafts.map((guidance) => cleanObject(guidance, options)),
     events: store.events.map((event) => exportEvent(event, options)),
     artifacts: cleanObject(store.artifacts, options),
   };
@@ -95,6 +109,15 @@ async function renderMarkdown(repoPath, store, options) {
 
   for (const variant of store.variants) {
     lines.push(`| ${safeText(variant.name, options)} | ${variant.decisionId} | ${safeText(variant.branch, options)} | ${variant.worktreePath ? safeText(variant.worktreePath, options) : ''} | ${variant.status} |`);
+  }
+
+  lines.push('', '## Savepoints', '');
+  if (store.savepoints.length === 0) {
+    lines.push('- No savepoints recorded.');
+  } else {
+    for (const savepoint of store.savepoints) {
+      lines.push(`- ${savepoint.title} (${savepoint.id}) at ${savepoint.git.commit.slice(0, 12)}`);
+    }
   }
 
   lines.push('', '## Events', '');

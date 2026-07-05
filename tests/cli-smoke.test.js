@@ -26,10 +26,16 @@ test('runs the MVP workflow through the adl CLI', async () => {
     assert.equal(runAdl(repo, ['log', 'note', 'Design approved']).status, 0);
     assert.equal(runAdl(repo, ['checkpoint', 'Ready for implementation']).status, 0);
 
+    assert.equal(
+      runAdl(repo, ['savepoint', 'create', 'Review rules?', '--decision', 'context-strategy']).status,
+      0,
+    );
+
     const tree = runAdl(repo, ['tree']);
     assert.equal(tree.status, 0);
     assert.match(tree.stdout, /Smoke Experiment/);
     assert.match(tree.stdout, /guidance-first/);
+    assert.match(tree.stdout, /Review rules\?/);
 
     const jsonOut = join(repo, '.agent-lab/exports/smoke.json');
     const mdOut = join(repo, '.agent-lab/exports/smoke.md');
@@ -38,6 +44,7 @@ test('runs the MVP workflow through the adl CLI', async () => {
 
     const exported = JSON.parse(await readFile(jsonOut, 'utf8'));
     assert.equal(exported.experiment.title, 'Smoke Experiment');
+    assert.equal(exported.savepoints.length, 1);
     assert.equal(exported.privacy.includeEventBodies, false);
     assert.match(await readFile(mdOut, 'utf8'), /# Smoke Experiment/);
   } finally {

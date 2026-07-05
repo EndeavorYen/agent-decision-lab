@@ -93,10 +93,12 @@ npm test
 npm run smoke
 ```
 
-`npm test` runs unit, integration, export, redaction, and CLI smoke tests with
-Node's built-in test runner. `npm run smoke` creates a temporary Git repository,
-initializes a live synthetic experiment with two variants, logs events, renders
-the tree, and writes JSON and Markdown exports.
+`npm test` runs unit, integration, export, redaction, savepoint, strategy,
+comparison, visualization, and CLI smoke tests with Node's built-in test runner.
+`npm run smoke` creates a temporary Git repository, initializes a live synthetic
+project guidance strategy experiment with three variants from one savepoint, logs events,
+records artifacts and evaluations, renders the tree, writes JSON/Markdown/
+Mermaid exports, creates a comparison report, and drafts guidance.
 
 ## Test Data Policy
 

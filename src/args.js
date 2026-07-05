@@ -1,4 +1,13 @@
-const pairedCommands = new Set(['decision', 'variant', 'log']);
+const pairedCommands = new Set([
+  'artifact',
+  'decision',
+  'guidance',
+  'log',
+  'savepoint',
+  'strategy',
+  'template',
+  'variant',
+]);
 
 export function parseArgs(argv) {
   const command = [];

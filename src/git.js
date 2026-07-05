@@ -40,6 +40,11 @@ export function getCurrentCommit(repoPath, ref = 'HEAD') {
   return git(repoPath, ['rev-parse', ref]).stdout.trim();
 }
 
+export function getCurrentBranch(repoPath) {
+  const result = git(repoPath, ['branch', '--show-current'], { allowFailure: true });
+  return result.stdout.trim() || 'HEAD';
+}
+
 export function branchExists(repoPath, branch) {
   return git(repoPath, ['rev-parse', '--verify', `refs/heads/${branch}`], {
     allowFailure: true,

@@ -93,10 +93,11 @@ adl --help
 adl init "Improve Checkout Flow"
 adl decision create "Context strategy" \
   --rationale "Compare guidance-visible and prompt-only runs"
-adl variant start guidance-first --decision context-strategy
+adl savepoint create "Read project guidance?" --decision context-strategy
+adl variant start guidance-first --from read-project-guidance
 adl log prompt --stdin
 adl checkpoint "Design approved"
-adl variant start prompt-only --decision context-strategy --worktree
+adl variant start prompt-only --from read-project-guidance --worktree
 adl tree
 adl export --format json --out .agent-lab/exports/latest.json
 adl export --format markdown --out .agent-lab/exports/latest.md
@@ -105,6 +106,30 @@ adl export --format markdown --out .agent-lab/exports/latest.md
 The CLI stores records under `.agent-lab/` in the target repository. Event
 bodies are omitted from default exports; pass `--include-private` only for
 private, local analysis.
+
+## Strategy Experiment Workflow
+
+Use `context-ab` when the decision is whether an agent should see planning
+context before doing the task:
+
+```bash
+adl template context-ab \
+  --question "Should the agent read project guidance before writing code review rules?" \
+  --decision "Context visibility" \
+  --a guidance-visible \
+  --b prompt-only \
+  --c draft-then-compare
+
+adl evaluate guidance-visible --scores '{"alignment":5,"specificity":4}'
+adl compare guidance-visible prompt-only draft-then-compare --out .agent-lab/exports/comparison.md
+adl export --format mermaid --out .agent-lab/exports/tree.mmd
+adl guidance draft \
+  --comparison cmp_guidance_visible_vs_prompt_only_vs_draft_then_compare \
+  --out .agent-lab/exports/guidance.md
+```
+
+The template creates a decision point, a clean savepoint, and variants that fork
+from the same saved commit.
 
 ## Documentation
 

@@ -38,6 +38,11 @@ function renderNode(lines, node, children, depth) {
     if (node.rationale) {
       lines.push(`${indent}  Rationale: ${node.rationale}`);
     }
+  } else if (node.type === 'savepoint') {
+    lines.push(`${indent}- Savepoint: ${node.title} (${node.id})`);
+    if (node.git?.commit) {
+      lines.push(`${indent}  Commit: ${node.git.commit.slice(0, 12)}`);
+    }
   } else {
     lines.push(`${indent}- Variant: ${node.name} (${node.id})`);
     lines.push(`${indent}  Branch: ${node.branch}`);
