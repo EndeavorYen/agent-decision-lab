@@ -102,11 +102,45 @@ Deliverables:
 - human-readable analysis;
 - list of product gaps found while using the tool.
 
+## Phase 7: Savepoint Forking
+
+Status: next planned phase.
+
+Goal: make decision points restorable so users can return to a recorded state
+and grow another clean branch later.
+
+Deliverables:
+
+- savepoint entity with Git commit anchor;
+- `savepoint create`;
+- start branch or worktree from a savepoint commit;
+- multiple variants from the same savepoint;
+- dirty-state rejection for forkable savepoints;
+- recovery output when a branch or worktree already exists.
+
+## Phase 8: Strategy Experiment Layer
+
+Status: planned after savepoint forking.
+
+Goal: support A/B-style agent collaboration strategy experiments such as project guidance
+visible versus prompt-only.
+
+Deliverables:
+
+- strategy metadata per variant;
+- `context-ab` template;
+- manual rubric and evaluation records;
+- comparison report;
+- Mermaid decision tree export with decision, savepoint, variant, artifact,
+  evaluation, comparison, and guidance nodes;
+- guidance draft from comparison results.
+
 ## Later Phases
 
 - Agent wrapper adapters.
 - Direct model provider adapters.
 - TUI tree navigator.
+- SVG visual renderer.
 - Web dashboard.
 - Evaluation framework integration.
 - Multi-user collaboration.

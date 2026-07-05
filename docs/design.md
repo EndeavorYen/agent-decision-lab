@@ -66,6 +66,21 @@ validate with schemas.
 
 ## Core Entity Model
 
+### Core Relationship
+
+The experiment tree separates questions from restorable state:
+
+```text
+Experiment
+  -> Decision Point: the question being tested
+      -> Savepoint: the Git and context state that can be forked again
+          -> Variant: one choice made from that savepoint
+              -> Decision Point: a later nested question
+```
+
+A decision point is not enough by itself. It must have a savepoint when the user
+needs to return later and create another clean branch from the same state.
+
 ### Experiment
 
 ```json
@@ -101,6 +116,33 @@ validate with schemas.
 }
 ```
 
+### Savepoint
+
+```json
+{
+  "id": "sp_read_project_guidance",
+  "type": "savepoint",
+  "decisionId": "dec_context_strategy",
+  "title": "Read project guidance?",
+  "rationale": "Preserve the state before choosing how much project guidance context the agent sees.",
+  "git": {
+    "commit": "abc123",
+    "branch": "main",
+    "isDirty": false
+  },
+  "context": {
+    "policy": "pre-decision",
+    "artifacts": []
+  },
+  "parentVariantId": null,
+  "createdAt": "2026-07-03T10:12:00.000Z"
+}
+```
+
+A savepoint is the fork anchor. Starting another strategy later should create a
+new branch or worktree from `git.commit`, not from whichever branch the user is
+currently on.
+
 ### Variant
 
 ```json
@@ -108,6 +150,7 @@ validate with schemas.
   "id": "var_guidance_first",
   "type": "variant",
   "decisionId": "dec_context_strategy",
+  "savepointId": "sp_read_project_guidance",
   "name": "guidance-first",
   "promptSummary": "Agent reads project guidance before design.",
   "branch": "adl/exp-checkout-flow/guidance-first",
@@ -159,15 +202,27 @@ adl decision create "Context strategy" \
   --rationale "Compare standard-visible and prompt-only development"
 ```
 
+### Create a Savepoint
+
+```bash
+adl savepoint create "Read project guidance?" \
+  --decision context-strategy \
+  --rationale "Fork strategies from the same pre-context state"
+```
+
+The savepoint records the current commit and context policy. The CLI should
+refuse to create a savepoint from a dirty working tree unless the user explicitly
+chooses a metadata-only checkpoint that cannot be used for clean Git forking.
+
 ### Start a Variant
 
 ```bash
 adl variant start guidance-first \
-  --decision context-strategy \
+  --from read-project-guidance \
   --worktree
 ```
 
-Creates or attaches a branch and optional worktree.
+Creates or attaches a branch and optional worktree from the savepoint commit.
 
 ### Log Session Events
 
@@ -207,11 +262,15 @@ Default worktree pattern:
 
 The Git manager must:
 
+- create new variant branches from the savepoint commit;
 - detect dirty working trees before switching or branching;
 - record base commit and current commit;
 - avoid deleting worktrees or branches without explicit confirmation;
 - support attaching an existing branch or worktree;
 - expose enough status to recover from interrupted runs.
+
+Returning to a savepoint must not rewrite or discard the current path. It should
+create a new branch or worktree that starts from the saved commit.
 
 ## Model and Agent Integration
 
@@ -248,6 +307,7 @@ The JSON export should include:
 
 - experiment metadata;
 - tree nodes;
+- savepoints and their Git anchors;
 - variants;
 - event summaries or full event bodies depending on privacy settings;
 - artifact index;
@@ -260,6 +320,7 @@ The Markdown export should include:
 
 - executive summary;
 - decision tree;
+- savepoint and fork summary;
 - variant comparison table;
 - artifacts;
 - open questions;
@@ -287,3 +348,6 @@ Examples:
 - Should checkpoints create Git commits, only metadata events, or support both?
 - Should redaction run at log time, export time, or both?
 - Should experiments be stored in the target repo or in a separate lab repo?
+- Should `savepoint create` require a clean working tree for every forkable
+  savepoint, and use a separate metadata-only checkpoint command for dirty
+  states?

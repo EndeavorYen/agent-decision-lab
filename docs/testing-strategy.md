@@ -40,6 +40,14 @@ Use temporary Git repositories to verify real behavior:
 
 Integration tests should not require network access.
 
+Savepoint integration tests should verify that:
+
+- a forkable savepoint records the exact current commit;
+- dirty working trees are rejected for clean savepoint creation;
+- multiple variant branches can start from the same savepoint commit;
+- returning to a savepoint creates a new branch or worktree instead of rewriting
+  an existing path.
+
 ### Golden File Tests
 
 Use synthetic fixtures to verify stable output:
@@ -141,4 +149,6 @@ The MVP test suite should prove that:
 - tree rendering matches the stored metadata;
 - JSON exports are deterministic;
 - redaction can be applied before sharing exports;
-- a user can resume an experiment after closing the terminal.
+- a user can resume an experiment after closing the terminal;
+- a user can return to a savepoint and fork another clean variant from the same
+  recorded state.

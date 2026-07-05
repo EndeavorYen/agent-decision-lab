@@ -75,6 +75,23 @@ A deliberate fork in collaboration strategy.
 
 Example: "Should the agent read project guidance before design?"
 
+### Savepoint
+
+A restorable experiment anchor where new variants can be forked later.
+
+A savepoint records enough state to recreate a clean branch from the same
+starting point:
+
+- Git commit;
+- parent decision point;
+- active variant or root experiment state;
+- context policy;
+- relevant prompt and artifact references;
+- creation time and rationale.
+
+A decision point asks the question. A savepoint preserves the state where that
+question can be answered repeatedly.
+
 ### Variant
 
 One path from a decision point.
@@ -109,7 +126,10 @@ result, benchmark, transcript, or manual review note.
 ### Decision Tree
 
 - Create a decision point with title, rationale, and optional parent node.
+- Create a savepoint for a decision point so the user can return later and fork
+  another variant from the same state.
 - Start a variant from a decision point.
+- Start a variant from a savepoint.
 - Support nested decision points under variants.
 - Render the tree in the terminal.
 - Export the tree as Markdown and JSON.
@@ -120,6 +140,8 @@ result, benchmark, transcript, or manual review note.
 - Create or attach a Git worktree for each variant when requested.
 - Record branch name, worktree path, base commit, parent variant, and current
   commit.
+- When starting from a savepoint, create the new branch from the savepoint commit
+  rather than from the current working tree.
 - Refuse unsafe operations when the working tree has uncommitted changes unless
   the user explicitly asks for an attach or continue operation.
 - Never delete branches or worktrees without explicit confirmation.
@@ -177,7 +199,9 @@ The MVP is successful when a user can:
 - render the experiment tree;
 - export JSON that another LLM can analyze;
 - hand the experiment record to another developer who can understand what
-  happened and where to continue.
+  happened and where to continue;
+- return to a savepoint and start another clean variant from the same recorded
+  state.
 
 ## Example Case Study
 
