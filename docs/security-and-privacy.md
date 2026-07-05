@@ -92,9 +92,10 @@ the current state safely.
 
 Prompt text and model output are untrusted inputs.
 
-The CLI should not execute model-suggested commands. If future adapters support
-command capture, they should record what happened but not grant extra authority
-to the model.
+The CLI should not execute model-suggested commands. The v0.1.0 adapter/plugin
+surface is a provider-neutral recipe layer: it can scaffold local instructions
+and record command output through `adl run`, but it does not grant extra
+authority to the model. Future executable adapters must preserve that boundary.
 
 ## Open-Source Boundary
 

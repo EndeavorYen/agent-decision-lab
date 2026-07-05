@@ -1,7 +1,9 @@
 import { spawnSync } from 'node:child_process';
 import { access, readFile } from 'node:fs/promises';
+import { listAdapters, renderAdapterGuide } from './adapters.js';
 import { parseArgs } from './args.js';
 import { compareVariants } from './compare.js';
+import { formatDoctorReport, runDoctor } from './doctor.js';
 import { appendEvent } from './events.js';
 import { exportExperiment } from './export.js';
 import { draftGuidance } from './guidance.js';
@@ -37,6 +39,17 @@ export async function runCli(argv, io) {
         return await initCommand(io, options, positionals);
       case 'status':
         return await statusCommand(io);
+      case 'doctor':
+        return await doctorCommand(io, options);
+      case 'adapter list':
+      case 'plugin list':
+        return await adapterListCommand(io);
+      case 'adapter show':
+      case 'plugin show':
+        return await adapterShowCommand(io, options, positionals);
+      case 'adapter scaffold':
+      case 'plugin scaffold':
+        return await adapterScaffoldCommand(io, options, positionals);
       case 'experiment create':
         return await experimentCreateCommand(io, options, positionals);
       case 'experiment list':
@@ -129,6 +142,39 @@ async function statusCommand(io) {
     `Events: ${store.events.length}`,
     '',
   ].join('\n'));
+  return 0;
+}
+
+async function doctorCommand(io, options) {
+  const report = await runDoctor(io.cwd);
+  if (options.json === true) {
+    write(io.stdout, `${JSON.stringify(report, null, 2)}\n`);
+  } else {
+    write(io.stdout, formatDoctorReport(report));
+  }
+  return report.ok ? 0 : 1;
+}
+
+async function adapterListCommand(io) {
+  for (const adapter of listAdapters()) {
+    write(io.stdout, `${adapter.id}\t${adapter.summary}\n`);
+  }
+  return 0;
+}
+
+async function adapterShowCommand(io, options, positionals) {
+  const id = positionals.join(' ').trim() || options.adapter;
+  const guide = renderAdapterGuide(id, { variant: options.variant });
+  write(io.stdout, guide);
+  return 0;
+}
+
+async function adapterScaffoldCommand(io, options, positionals) {
+  const id = positionals.join(' ').trim() || options.adapter;
+  const guide = renderAdapterGuide(id, { variant: options.variant });
+  const out = options.out ?? `.agent-lab/adapters/${id}.md`;
+  await writeFileOption(io.cwd, out, guide);
+  write(io.stdout, `Scaffolded ${id} adapter to ${out}\n`);
   return 0;
 }
 
@@ -594,6 +640,11 @@ function helpText() {
 
 Usage:
   adl init "Experiment Title"
+  adl doctor [--json]
+  adl adapter list
+  adl adapter show manual
+  adl adapter scaffold manual --out .agent-lab/adapters/manual.md
+  adl plugin scaffold command-wrapper --variant variant-name
   adl status
   adl experiment create "Experiment Title"
   adl experiment list

@@ -179,7 +179,7 @@ result, benchmark, transcript, or manual review note.
 
 ## Future Requirements
 
-- Direct model or coding-agent adapters.
+- Direct model or coding-agent execution adapters.
 - Interactive TUI for tree navigation.
 - Web dashboard for visual comparison.
 - Integration with eval systems such as OpenAI Evals or Braintrust.
@@ -207,6 +207,9 @@ The MVP is successful when a user can:
 - compare qualitative no-score outcomes without implying that unscored results
   are zero-quality results;
 - inspect ADL-owned worktrees before deciding whether to clean them up.
+- run `adl doctor` before a production case study;
+- scaffold provider-neutral adapter/plugin recipes for manual and command
+  wrapper workflows.
 
 ## Example Case Study
 

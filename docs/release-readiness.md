@@ -27,6 +27,12 @@ GitHub Actions runs the same command on pushes to `main` and pull requests.
 
 Before release, verify that the CLI supports:
 
+- production onboarding checks with `adl doctor`;
+- provider-neutral adapter/plugin recipe commands:
+  - `adl adapter list`;
+  - `adl adapter show`;
+  - `adl adapter scaffold`;
+  - `adl plugin scaffold`;
 - case-study workflow commands:
   - `adl case-study init`;
   - `adl case-study add-variant`;
@@ -77,6 +83,8 @@ should keep evidence that:
 
 - one case study exercised multi-agent and multi-worktree development;
 - one case study exercised the productized case-study workflow;
+- one case study exercised a public Reality Slap Skill target checkout without
+  committing private target-local `.agent-lab/` data;
 - no-score comparison behaved as qualitative analysis, not a zero-score ranking;
 - worktree lifecycle commands could list and dry-run cleanup registered
   worktrees;

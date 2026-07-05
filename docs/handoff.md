@@ -12,7 +12,14 @@ Implemented commands:
 
 - `adl --help`
 - `adl init`
+- `adl doctor`
 - `adl status`
+- `adl adapter list`
+- `adl adapter show`
+- `adl adapter scaffold`
+- `adl plugin list`
+- `adl plugin show`
+- `adl plugin scaffold`
 - `adl experiment create`
 - `adl experiment list`
 - `adl experiment switch`
@@ -60,6 +67,10 @@ Tool is open. Experiments are private.
 The CLI supports:
 
 - `adl init`;
+- `adl doctor`;
+- `adl adapter list`;
+- `adl adapter scaffold`;
+- `adl plugin scaffold`;
 - `adl case-study init`;
 - `adl case-study add-variant`;
 - `adl case-study record-result`;
@@ -76,8 +87,9 @@ The CLI supports:
 - `adl tree`;
 - `adl export`.
 
-The MVP uses manual transcript logging. Direct model orchestration is still a
-future adapter layer, not a dependency of the first usable version.
+The MVP uses manual transcript logging plus provider-neutral adapter/plugin
+recipes. Direct model orchestration is still a future adapter layer, not a
+dependency of the first usable version.
 
 ## Current Stack
 

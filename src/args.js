@@ -1,10 +1,12 @@
 const pairedCommands = new Set([
+  'adapter',
   'artifact',
   'case-study',
   'decision',
   'experiment',
   'guidance',
   'log',
+  'plugin',
   'savepoint',
   'strategy',
   'template',

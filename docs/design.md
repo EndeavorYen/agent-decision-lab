@@ -349,7 +349,7 @@ flowchart LR
   adapter --> other[Other agents]
 ```
 
-Adapter responsibilities:
+Adapter and plugin recipe responsibilities:
 
 - capture submitted prompts;
 - capture visible responses;
@@ -357,8 +357,18 @@ Adapter responsibilities:
 - associate outputs with the active experiment variant;
 - avoid hidden prompt injection.
 
-The first version can implement only the manual adapter while preserving the
-interface.
+The first release implements provider-neutral recipes instead of executable
+provider integrations:
+
+```bash
+adl adapter list
+adl adapter show manual
+adl adapter scaffold manual --out .agent-lab/adapters/manual.md
+adl plugin scaffold command-wrapper --variant docs-visible
+```
+
+These recipes document how to use ADL as the recorder around a human-operated
+agent or local command. Direct model orchestration remains a later layer.
 
 ## Export Design
 

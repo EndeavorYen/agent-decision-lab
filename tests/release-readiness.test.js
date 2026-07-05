@@ -48,3 +48,21 @@ test('release checklist documents privacy and live-case gates', async () => {
   assert.match(release, /dashboard-style HTML/i);
   assert.match(release, /local filesystem paths/i);
 });
+
+test('production onboarding and v0.1.0 release docs are linked and complete', async () => {
+  const readme = await readFile(join(projectRoot, 'README.md'), 'utf8');
+  const onboarding = await readFile(join(projectRoot, 'docs/onboarding.md'), 'utf8');
+  const releaseNotes = await readFile(join(projectRoot, 'docs/releases/v0.1.0.md'), 'utf8');
+  const caseStudy = await readFile(join(projectRoot, 'docs/examples/reality-slap-skill-case-study.md'), 'utf8');
+
+  assert.match(readme, /Onboarding/);
+  assert.match(onboarding, /adl doctor/);
+  assert.match(onboarding, /adapter scaffold/);
+  assert.match(onboarding, /plugin scaffold/);
+  assert.match(releaseNotes, /v0\.1\.0/);
+  assert.match(releaseNotes, /GitHub Release/);
+  assert.match(releaseNotes, /No npm publish/);
+  assert.match(caseStudy, /Reality Slap Skill/);
+  assert.match(caseStudy, /no-score/i);
+  assert.match(caseStudy, /redacted/i);
+});

@@ -91,6 +91,9 @@ adl --help
 
 ```bash
 adl init "Improve Checkout Flow"
+adl doctor
+adl adapter list
+adl adapter scaffold manual --out .agent-lab/adapters/manual.md
 adl experiment create "Bald Patch Case Study"
 adl experiment list
 adl experiment switch "Bald Patch Case Study"
@@ -181,7 +184,9 @@ or local review scripts without depending on a specific model provider.
 - [MVP Implementation Design](docs/mvp-implementation-design.md)
 - [Testing Strategy](docs/testing-strategy.md)
 - [Security and Privacy](docs/security-and-privacy.md)
+- [Onboarding](docs/onboarding.md)
 - [Release Readiness](docs/release-readiness.md)
+- [Reality Slap Skill Case Study](docs/examples/reality-slap-skill-case-study.md)
 - [Roadmap](docs/roadmap.md)
 - [Research Notes](docs/research-notes.md)
 - [Handoff Notes](docs/handoff.md)

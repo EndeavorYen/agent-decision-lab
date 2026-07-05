@@ -137,7 +137,7 @@ Deliverables:
 
 ## Phase 9: Sanitized Case Study And Release Hardening
 
-Status: in progress.
+Status: complete for v0.1.0.
 
 Goal: prove the tool on a real private workspace while publishing only sanitized
 examples and release-safe documentation.
@@ -150,17 +150,15 @@ Deliverables:
 - qualitative no-score comparison support;
 - worktree lifecycle inspection and cleanup dry-runs;
 - dashboard-style HTML report;
+- provider-neutral adapter/plugin recipes;
+- production onboarding and `adl doctor`;
+- Reality Slap Skill sanitized case-study summary;
 - live-run evidence kept in the target workspace;
 - verification that public examples omit raw transcripts and local paths.
 
-Remaining validation:
-
-- run a second live case study with the productized workflow to check whether
-  the process generalizes beyond the first target repository.
-
 ## Later Phases
 
-- Agent wrapper adapters.
+- Executable agent wrapper adapters.
 - Direct model provider adapters.
 - TUI tree navigator.
 - SVG visual renderer.

@@ -147,6 +147,10 @@ git status --short
 The MVP test suite should prove that:
 
 - metadata is valid after every supported CLI command;
+- `adl doctor` reports Git, Node, experiment, privacy-ignore, and dirty-tree
+  readiness;
+- adapter/plugin recipe commands list, show, and scaffold provider-neutral
+  guidance;
 - multiple experiments can coexist in one target repository;
 - case-study workflow commands can create variants, record qualitative results,
   and export a report pack;
