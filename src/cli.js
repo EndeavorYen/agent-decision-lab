@@ -326,7 +326,7 @@ Usage:
   adl log prompt|response|note|command|artifact [text] [--stdin] [--variant variant-name]
   adl checkpoint "Checkpoint name"
   adl tree
-  adl export --format json|markdown|mermaid [--out path] [--include-private] [--no-redact]
+  adl export --format json|markdown|mermaid|svg [--out path] [--include-private] [--no-redact]
 
 `;
 }

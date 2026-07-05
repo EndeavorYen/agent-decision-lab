@@ -4,6 +4,7 @@ import { redactText } from './redact.js';
 import { renderTree } from './render.js';
 import { renderMermaid } from './graph.js';
 import { loadCurrentStore } from './store.js';
+import { renderSvg } from './svg.js';
 
 export async function exportExperiment(repoPath, options = {}) {
   const format = options.format ?? 'json';
@@ -25,6 +26,14 @@ export async function exportExperiment(repoPath, options = {}) {
       await writeOutput(repoPath, options.out, mermaid);
     }
     return mermaid;
+  }
+
+  if (format === 'svg') {
+    const svg = renderSvg(store);
+    if (options.out) {
+      await writeOutput(repoPath, options.out, svg);
+    }
+    return svg;
   }
 
   if (format !== 'json') {

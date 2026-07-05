@@ -126,3 +126,43 @@ test('exports nested decisions under their parent variant', async () => {
     await cleanup(repo);
   }
 });
+
+test('exports a standalone SVG tree for visual inspection', async () => {
+  const repo = await createTempGitRepo();
+  try {
+    await createExperimentStore(repo, { title: 'SVG Strategy Tree' });
+    const decision = await createDecision(repo, {
+      title: 'Context visibility',
+      rationale: 'Pick the first context strategy',
+    });
+    const savepoint = await createSavepoint(repo, {
+      title: 'Read project guidance?',
+      decision: decision.id,
+    });
+    const variant = await startVariant(repo, {
+      name: 'prompt-only',
+      from: savepoint.id,
+      createBranch: true,
+    });
+    await addArtifact(repo, {
+      id: 'prompt-only-output',
+      variant: variant.id,
+      path: 'outputs/prompt-only.md',
+    });
+    await evaluateVariant(repo, {
+      variant: variant.id,
+      scores: { alignment: 4, specificity: 5 },
+    });
+
+    const svg = await exportExperiment(repo, { format: 'svg' });
+
+    assert.match(svg, /^<svg /);
+    assert.match(svg, /SVG Strategy Tree/);
+    assert.match(svg, /Decision: Context visibility/);
+    assert.match(svg, /Savepoint: Read project guidance\?/);
+    assert.match(svg, /Variant: prompt-only/);
+    assert.match(svg, /score 9/);
+  } finally {
+    await cleanup(repo);
+  }
+});
