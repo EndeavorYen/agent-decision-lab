@@ -236,7 +236,7 @@ The first rubric should be generic enough for code review rule quality:
 - signal-to-noise ratio;
 - coverage of important risk areas;
 - maintainability of the resulting rules;
-- risk of overfitting or irrelevant context leakage;
+- low risk of overfitting or irrelevant context leakage;
 - evidence quality.
 
 Each criterion should support:
@@ -284,8 +284,9 @@ It should include:
 
 A guidance draft is a post-experiment synthesis.
 
-It should not pretend one experiment proves a universal law. It should produce
-careful rules such as:
+It should not pretend one experiment proves a universal law. It should derive
+the supported rule from the leading scored strategy, then list alternatives as
+suggested but not proven. Careful rules can include:
 
 - show planning documents when the task requires values, risk appetite, or
   process alignment;

@@ -71,7 +71,7 @@ test('records private artifacts and manual rubric evaluations', async () => {
         signalToNoise: 4,
         riskCoverage: 5,
         maintainability: 4,
-        overfitRisk: 2,
+        lowOverfitRisk: 2,
         evidenceQuality: 4,
       },
       strengths: ['Rules reflect quality philosophy'],

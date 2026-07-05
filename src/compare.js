@@ -106,8 +106,9 @@ export function renderComparisonMarkdown(store, comparison) {
 
   lines.push('', '## Guidance Candidates', '');
   lines.push('- Treat recommendations as evidence-backed, not universal truth.');
-  lines.push('- Prefer showing planning documents when alignment and risk appetite matter.');
-  lines.push('- Prefer prompt-only starts when focus and concrete formatting matter most.');
+  for (const candidate of guidanceCandidateLines(comparison)) {
+    lines.push(candidate);
+  }
   lines.push('');
 
   return lines.join('\n');
@@ -140,6 +141,28 @@ function judgment(rows) {
     return 'inconclusive';
   }
   return `${scored[0].name} currently leads on recorded rubric scores`;
+}
+
+function guidanceCandidateLines(comparison) {
+  const scored = comparison.variants
+    .filter((variant) => Number.isFinite(variant.totalScore))
+    .toSorted((a, b) => b.totalScore - a.totalScore);
+  if (scored.length === 0) {
+    return ['- Add evaluations before deriving a recommendation.'];
+  }
+
+  const highScore = scored[0].totalScore;
+  const leaders = scored.filter((variant) => variant.totalScore === highScore);
+  const lines = leaders.length === 1
+    ? [`- Lead candidate: ${leaders[0].name} (${leaders[0].strategy?.contextPolicy ?? 'missing strategy'}) based on total score ${leaders[0].totalScore}.`]
+    : [`- No single lead candidate. Tied variants: ${leaders.map((variant) => variant.name).join(', ')}.`];
+
+  for (const variant of comparison.variants) {
+    if (variant.strategy?.hypothesis) {
+      lines.push(`- ${variant.name}: ${variant.strategy.hypothesis}`);
+    }
+  }
+  return lines;
 }
 
 function listText(values) {

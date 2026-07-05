@@ -11,7 +11,7 @@ const defaultRubric = {
     'signalToNoise',
     'riskCoverage',
     'maintainability',
-    'overfitRisk',
+    'lowOverfitRisk',
     'evidenceQuality',
   ],
 };

@@ -80,7 +80,55 @@ test('drafts conservative guidance from comparison evidence', async () => {
     assert.match(guidance, /# Agent Collaboration Guidance/);
     assert.match(guidance, /supported by this experiment/i);
     assert.match(guidance, /suggested but not proven/i);
+    assert.match(guidance, /Use guidance-visible/);
     assert.match(guidance, /project guidance/);
+  } finally {
+    await cleanup(repo);
+  }
+});
+
+test('drafted guidance follows the leading scored strategy', async () => {
+  const repo = await createTempGitRepo();
+  try {
+    await createExperimentStore(repo, { title: 'Prompt Strategy Lab' });
+    const { variants } = await createContextAbTemplate(repo, {
+      question: 'Which context policy should the agent use?',
+      decision: 'Context visibility',
+      a: 'docs-visible',
+      b: 'prompt-only',
+      c: 'draft-then-compare',
+    });
+
+    for (const variant of variants) {
+      await addArtifact(repo, {
+        id: `${variant.name}-artifact`,
+        variant: variant.id,
+        path: `outputs/${variant.name}.md`,
+      });
+    }
+
+    await evaluateVariant(repo, {
+      variant: 'docs-visible',
+      scores: { alignment: 5, specificity: 3, signalToNoise: 3 },
+    });
+    await evaluateVariant(repo, {
+      variant: 'prompt-only',
+      scores: { alignment: 4, specificity: 5, signalToNoise: 5 },
+    });
+    await evaluateVariant(repo, {
+      variant: 'draft-then-compare',
+      scores: { alignment: 4, specificity: 4, signalToNoise: 4 },
+    });
+
+    const comparison = await compareVariants(repo, {
+      variants: variants.map((variant) => variant.id),
+      rubric: 'code-review-rule-quality',
+    });
+    const guidance = await draftGuidance(repo, { comparison: comparison.id });
+
+    assert.match(comparison.markdown, /Lead candidate: prompt-only/);
+    assert.match(guidance, /Use prompt-only/);
+    assert.doesNotMatch(guidance, /Use docs-visible/);
   } finally {
     await cleanup(repo);
   }
