@@ -127,19 +127,19 @@ adl savepoint create "Read project guidance?" \
   --rationale "Fork all project guidance visibility strategies from the same clean state"
 
 adl strategy set guidance-visible \
-  --from read-project-guidance \
+  --from read-guidance \
   --context-policy guidance-visible \
   --hypothesis "project guidance context improves alignment with quality philosophy" \
   --risk "May overfit planning text or become too broad"
 
 adl strategy set prompt-only \
-  --from read-project-guidance \
+  --from read-guidance \
   --context-policy prompt-only \
   --hypothesis "Focused prompt improves rule specificity" \
   --risk "May miss quality philosophy and produce generic rules"
 
 adl strategy set draft-then-compare \
-  --from read-project-guidance \
+  --from read-guidance \
   --context-policy delayed-guidance \
   --hypothesis "Drafting first then checking project guidance may balance focus and alignment" \
   --risk "May require extra review effort"
@@ -170,9 +170,9 @@ The next implementation must support repeated forks from the same savepoint.
 Example:
 
 ```bash
-adl branch start guidance-visible --from read-project-guidance --worktree
-adl branch start prompt-only --from read-project-guidance --worktree
-adl branch start draft-then-compare --from read-project-guidance --worktree
+adl branch start guidance-visible --from read-guidance --worktree
+adl branch start prompt-only --from read-guidance --worktree
+adl branch start draft-then-compare --from read-guidance --worktree
 ```
 
 All three branches must start from the savepoint's recorded commit. They must

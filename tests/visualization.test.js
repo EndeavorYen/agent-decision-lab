@@ -159,7 +159,8 @@ test('exports a standalone SVG tree for visual inspection', async () => {
     assert.match(svg, /^<svg /);
     assert.match(svg, /SVG Strategy Tree/);
     assert.match(svg, /Decision: Context visibility/);
-    assert.match(svg, /Savepoint: Read project guidance\?/);
+    assert.match(svg, /Savepoint: Read project/);
+    assert.match(svg, /guidance\? @/);
     assert.match(svg, /Variant: prompt-only/);
     assert.match(svg, /score 9/);
   } finally {

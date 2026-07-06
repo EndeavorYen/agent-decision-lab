@@ -88,7 +88,7 @@ test('rejects forkable savepoints when non-lab files are dirty', async () => {
   }
 });
 
-test('forks a new branch from a savepoint even when current work is dirty', async () => {
+test('refuses current-checkout variant start when current work is dirty', async () => {
   const repo = await createTempGitRepo();
   try {
     await createExperimentStore(repo, { title: 'Dirty Current Path Lab' });
@@ -102,14 +102,25 @@ test('forks a new branch from a savepoint even when current work is dirty', asyn
     });
     await writeFile(join(repo, 'dirty.txt'), 'work in progress on current path\n');
 
+    await assert.rejects(
+      () => startVariant(repo, {
+        name: 'prompt-only',
+        from: savepoint.id,
+        createBranch: true,
+      }),
+      /Cannot start variant with uncommitted changes outside .agent-lab/,
+    );
+
     const variant = await startVariant(repo, {
-      name: 'prompt-only',
+      name: 'prompt-only-worktree',
       from: savepoint.id,
       createBranch: true,
+      createWorktree: true,
     });
 
     assert.equal(variant.baseCommit, savepoint.git.commit);
     assert.equal(run('git', ['rev-parse', variant.branch], repo).stdout.trim(), savepoint.git.commit);
+    assert.equal(run('git', ['branch', '--show-current'], repo).stdout.trim(), 'main');
   } finally {
     await cleanup(repo);
   }

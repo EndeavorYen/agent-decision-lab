@@ -12,7 +12,7 @@ import {
   startVariant,
 } from '../src/store.js';
 
-test('creates a decision, starts a branch variant, and logs a note event', async () => {
+test('creates a decision, starts and checks out a branch variant, and logs a note event', async () => {
   const repo = await createTempGitRepo();
   try {
     await createExperimentStore(repo, { title: 'Checkout Lab' });
@@ -36,6 +36,7 @@ test('creates a decision, starts a branch variant, and logs a note event', async
     assert.equal(variant.id, 'var_guidance_first');
     assert.equal(variant.decisionId, decision.id);
     assert.equal(variant.branch, 'adl/checkout_lab/guidance_first');
+    assert.equal(run('git', ['branch', '--show-current'], repo).stdout.trim(), variant.branch);
     assert.equal(event.variantId, variant.id);
 
     const branch = run('git', ['rev-parse', '--verify', variant.branch], repo);
@@ -143,9 +144,9 @@ test('checks out a named branch from a savepoint and clears active variant', asy
       decision: decision.id,
     });
 
-    runAdl(repo, ['savepoint', 'checkout', 'Read project guidance?', '--branch', 'adl/replay/read-project-guidance']);
+    runAdl(repo, ['savepoint', 'checkout', 'Read project guidance?', '--branch', 'adl/replay/read-guidance']);
 
-    assert.equal(run('git', ['branch', '--show-current'], repo).stdout.trim(), 'adl/replay/read-project-guidance');
+    assert.equal(run('git', ['branch', '--show-current'], repo).stdout.trim(), 'adl/replay/read-guidance');
     assert.equal(run('git', ['rev-parse', 'HEAD'], repo).stdout.trim(), savepoint.git.commit);
     const store = await loadCurrentStore(repo);
     assert.equal(store.config.activeVariantId, null);

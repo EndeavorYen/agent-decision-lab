@@ -287,7 +287,10 @@ export async function startVariant(repoPath, input) {
 
   const createBranchRequested = input.createBranch ?? true;
   const createWorktreeRequested = input.createWorktree ?? false;
-  if (!savepoint && (createBranchRequested || createWorktreeRequested) && !input.attach) {
+  const checkoutCurrentWorktree = !createWorktreeRequested && (input.attach || createBranchRequested);
+  const requiresCleanWorktree = checkoutCurrentWorktree
+    || (!savepoint && (createBranchRequested || createWorktreeRequested) && !input.attach);
+  if (requiresCleanWorktree) {
     const dirty = dirtyPathsOutsideLab(repoPath);
     if (dirty.length > 0) {
       throw new Error(
@@ -321,6 +324,9 @@ export async function startVariant(repoPath, input) {
     createWorktree(repoPath, worktreePath, branch, baseCommit);
   } else if (createBranchRequested) {
     createBranch(repoPath, branch, baseCommit);
+  }
+  if (checkoutCurrentWorktree) {
+    checkoutBranch(repoPath, branch);
   }
 
   const now = new Date().toISOString();

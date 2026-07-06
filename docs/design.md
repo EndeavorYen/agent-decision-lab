@@ -120,7 +120,7 @@ needs to return later and create another clean branch from the same state.
 
 ```json
 {
-  "id": "sp_read_project_guidance",
+  "id": "sp_read_guidance",
   "type": "savepoint",
   "decisionId": "dec_context_strategy",
   "title": "Read project guidance?",
@@ -150,7 +150,7 @@ currently on.
   "id": "var_guidance_first",
   "type": "variant",
   "decisionId": "dec_context_strategy",
-  "savepointId": "sp_read_project_guidance",
+  "savepointId": "sp_read_guidance",
   "name": "guidance-first",
   "promptSummary": "Agent reads project guidance before design.",
   "branch": "adl/exp-checkout-flow/guidance-first",
@@ -218,7 +218,7 @@ chooses a metadata-only checkpoint that cannot be used for clean Git forking.
 
 ```bash
 adl variant start guidance-first \
-  --from read-project-guidance \
+  --from read-guidance \
   --worktree
 ```
 
@@ -299,7 +299,7 @@ To resume or replay work:
 
 ```bash
 adl variant checkout prompt-only
-adl savepoint checkout read-project-guidance --branch adl/replay/read-project-guidance
+adl savepoint checkout read-guidance --branch adl/replay/read-guidance
 ```
 
 ## Branch and Worktree Strategy
