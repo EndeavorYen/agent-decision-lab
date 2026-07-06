@@ -35,7 +35,12 @@ Implemented commands:
 - `adl worktree list`
 - `adl worktree status`
 - `adl worktree cleanup --dry-run`
+- `adl ui`
 - `adl run`
+- `adl run --quiet`
+- `adl run --tail`
+- `adl rebuild init`
+- `adl orchestrate`
 - `adl template context-ab`
 - `adl strategy set`
 - `adl artifact add`
@@ -80,12 +85,17 @@ The CLI supports:
 - `adl worktree list`;
 - `adl worktree status`;
 - `adl worktree cleanup --dry-run`;
+- `adl ui`;
 - `adl log prompt`;
 - `adl log response`;
 - `adl log note`;
 - `adl checkpoint`;
 - `adl tree`;
-- `adl export`.
+- `adl export`;
+- `adl run --quiet`;
+- `adl run --tail`;
+- `adl rebuild init`;
+- `adl orchestrate`.
 
 The MVP uses manual transcript logging plus provider-neutral adapter/plugin
 recipes. Direct model orchestration is still a future adapter layer, not a
@@ -125,8 +135,15 @@ single-binary distribution becomes the top priority.
   variant, result-recording, comparison, guidance, and export flow.
 - Worktree lifecycle inspection and cleanup dry-runs for ADL-owned worktrees.
 - Git branch creation and optional worktree creation.
+- Registered variant worktrees can run metadata commands by resolving the
+  owning base lab store.
 - Variant checkout and savepoint checkout for resuming or replaying a branch.
 - Command-run capture for recording real local runs as experiment events.
+- Quiet and tail modes for command-run capture.
+- Guided orchestration output for deciding the next operator route.
+- Blank rebuild lab setup for multi-agent reconstruction experiments.
+- Local realtime UI with case-study controls, worktree variant creation, note
+  logging, HTML export, doctor checks, and Server-Sent Events.
 - Dirty-tree safety outside `.agent-lab/`.
 - Tree rendering.
 - JSON, Markdown, Mermaid, SVG, and dashboard-style HTML export.

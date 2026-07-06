@@ -7,6 +7,7 @@ const pairedCommands = new Set([
   'guidance',
   'log',
   'plugin',
+  'rebuild',
   'savepoint',
   'strategy',
   'template',

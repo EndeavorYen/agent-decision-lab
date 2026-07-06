@@ -152,6 +152,10 @@ Deliverables:
 - dashboard-style HTML report;
 - provider-neutral adapter/plugin recipes;
 - production onboarding and `adl doctor`;
+- local realtime UI controls;
+- guided orchestration and blank rebuild lab workflow;
+- quiet/tail command capture;
+- base lab metadata resolution from registered variant worktrees;
 - Reality Slap Skill sanitized case-study summary;
 - live-run evidence kept in the target workspace;
 - verification that public examples omit raw transcripts and local paths.
@@ -162,7 +166,7 @@ Deliverables:
 - Direct model provider adapters.
 - TUI tree navigator.
 - SVG visual renderer.
-- Web dashboard.
+- Hosted web dashboard.
 - Evaluation framework integration.
 - Multi-user collaboration.
 - Hosted mode, only if privacy and governance requirements are clear.

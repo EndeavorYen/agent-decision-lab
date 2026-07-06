@@ -210,6 +210,9 @@ The MVP is successful when a user can:
 - run `adl doctor` before a production case study;
 - scaffold provider-neutral adapter/plugin recipes for manual and command
   wrapper workflows.
+- operate a lab from a local realtime UI for common actions;
+- use guided orchestration to know the next route and worktree;
+- run noisy verification commands with quiet or tail output.
 
 ## Example Case Study
 

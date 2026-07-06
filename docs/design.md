@@ -295,12 +295,40 @@ Command output can be captured without a model-provider dependency:
 adl run --variant prompt-only -- npm test
 ```
 
+Noisy commands can be captured without flooding the active terminal:
+
+```bash
+adl run --quiet --variant prompt-only -- npm test
+adl run --tail 30 --variant prompt-only -- npm test
+```
+
 To resume or replay work:
 
 ```bash
 adl variant checkout prompt-only
 adl savepoint checkout read-guidance --branch adl/replay/read-guidance
 ```
+
+### Guided Operation And Realtime UI
+
+The MVP includes local operator surfaces for the common loop:
+
+```bash
+adl ui --host 127.0.0.1 --port 8787
+adl orchestrate prompt-only
+adl rebuild init "Blank Rebuild" --keep AGENTS.md --variants docs-visible,prompt-only --worktree
+```
+
+`adl ui` starts a dependency-free local HTTP server with controls for case-study
+initialization, variant creation, note logging, HTML export, doctor checks, and
+realtime state streaming over Server-Sent Events.
+
+`adl orchestrate` does not call a model. It renders the next operator route,
+the metadata command location, the variant worktree, and the prompt context to
+use with an external agent.
+
+`adl rebuild init` creates a clean rebuild lab from a preserved file set so
+multiple agents can attempt a reconstruction from the same blank baseline.
 
 ## Branch and Worktree Strategy
 
@@ -406,6 +434,33 @@ The Markdown export should include:
 The HTML export should act as a compact dashboard with decision tree, variant
 table, artifact table, command runs, qualitative findings, privacy/redaction
 status, and export freshness.
+
+## Realtime UI
+
+`adl ui` starts a local dependency-free HTTP server for operating a lab:
+
+```bash
+adl ui --host 127.0.0.1 --port 8787
+```
+
+The UI exposes local controls for case-study initialization, variant creation,
+note logging, and HTML export. It renders the same decision tree and recent
+events as the CLI. Realtime updates use Server-Sent Events from `/api/events`;
+the browser receives current state immediately and then periodic state refreshes.
+
+The UI is intentionally not a hosted dashboard. It runs on the operator's
+machine and writes only target-local `.agent-lab/` metadata.
+
+## Guided Operation
+
+The CLI now includes higher-level operating modes:
+
+- `adl orchestrate` prints the next route, worktree, prompt block, and metadata
+  versus code-work boundaries.
+- `adl rebuild init` creates a blank rebuild lab in an isolated worktree while
+  preserving requested `--keep` files.
+- `adl run --quiet` and `adl run --tail N` keep noisy command evidence usable
+  in guided sessions.
 
 ## Error Handling
 

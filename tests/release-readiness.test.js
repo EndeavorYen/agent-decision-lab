@@ -54,8 +54,10 @@ test('production onboarding and v0.1.0 release docs are linked and complete', as
   const onboarding = await readFile(join(projectRoot, 'docs/onboarding.md'), 'utf8');
   const releaseNotes = await readFile(join(projectRoot, 'docs/releases/v0.1.0.md'), 'utf8');
   const caseStudy = await readFile(join(projectRoot, 'docs/examples/reality-slap-skill-case-study.md'), 'utf8');
+  const ui = await readFile(join(projectRoot, 'docs/ui.md'), 'utf8');
 
   assert.match(readme, /Onboarding/);
+  assert.match(readme, /Realtime UI/);
   assert.match(onboarding, /adl doctor/);
   assert.match(onboarding, /adapter scaffold/);
   assert.match(onboarding, /plugin scaffold/);
@@ -65,4 +67,8 @@ test('production onboarding and v0.1.0 release docs are linked and complete', as
   assert.match(caseStudy, /Reality Slap Skill/);
   assert.match(caseStudy, /no-score/i);
   assert.match(caseStudy, /redacted/i);
+  assert.match(ui, /adl ui/);
+  assert.match(ui, /EventSource/);
+  assert.match(ui, /Init Case Study/);
+  assert.match(ui, /Add Variant/);
 });

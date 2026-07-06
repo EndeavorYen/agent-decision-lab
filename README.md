@@ -92,6 +92,7 @@ adl --help
 ```bash
 adl init "Improve Checkout Flow"
 adl doctor
+adl ui --host 127.0.0.1 --port 8787
 adl adapter list
 adl adapter scaffold manual --out .agent-lab/adapters/manual.md
 adl experiment create "Bald Patch Case Study"
@@ -120,8 +121,11 @@ adl case-study record-result guidance-first \
   --no-score
 adl case-study export guidance-first prompt-only \
   --out-dir .agent-lab/exports/review-json-case
+adl orchestrate guidance-first
 adl variant checkout guidance-first
 adl savepoint checkout before-task --branch adl/replay/before-task
+adl run --quiet --variant guidance-first -- npm test
+adl run --tail 30 --variant guidance-first -- npm test
 adl worktree list
 adl worktree status
 adl worktree cleanup --dry-run
@@ -185,6 +189,7 @@ or local review scripts without depending on a specific model provider.
 - [Testing Strategy](docs/testing-strategy.md)
 - [Security and Privacy](docs/security-and-privacy.md)
 - [Onboarding](docs/onboarding.md)
+- [Realtime UI](docs/ui.md)
 - [Release Readiness](docs/release-readiness.md)
 - [Reality Slap Skill Case Study](docs/examples/reality-slap-skill-case-study.md)
 - [Roadmap](docs/roadmap.md)

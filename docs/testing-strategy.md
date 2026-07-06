@@ -149,6 +149,16 @@ The MVP test suite should prove that:
 - metadata is valid after every supported CLI command;
 - `adl doctor` reports Git, Node, experiment, privacy-ignore, and dirty-tree
   readiness;
+- `adl ui` can initialize a case study, add a variant, log a note, export HTML,
+  and stream realtime state with Server-Sent Events;
+- ADL metadata commands invoked inside registered variant worktrees resolve the
+  owning base lab store;
+- `adl run --quiet` and `adl run --tail` reduce terminal noise while preserving
+  command evidence;
+- `adl rebuild init` creates an isolated blank rebuild lab while preserving keep
+  files;
+- `adl orchestrate` renders next-route guidance and records responses and
+  checkpoints;
 - adapter/plugin recipe commands list, show, and scaffold provider-neutral
   guidance;
 - multiple experiments can coexist in one target repository;

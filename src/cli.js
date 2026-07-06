@@ -7,7 +7,10 @@ import { formatDoctorReport, runDoctor } from './doctor.js';
 import { appendEvent } from './events.js';
 import { exportExperiment } from './export.js';
 import { draftGuidance } from './guidance.js';
+import { renderOrchestratorGuide } from './orchestrator.js';
+import { createRebuildLab } from './rebuild.js';
 import { renderTree } from './render.js';
+import { createUiServer } from './ui.js';
 import {
   createDecision,
   createExperimentStore,
@@ -41,6 +44,8 @@ export async function runCli(argv, io) {
         return await statusCommand(io);
       case 'doctor':
         return await doctorCommand(io, options);
+      case 'ui':
+        return await uiCommand(io, options);
       case 'adapter list':
       case 'plugin list':
         return await adapterListCommand(io);
@@ -64,6 +69,8 @@ export async function runCli(argv, io) {
         return await caseStudyRecordResultCommand(io, options, positionals);
       case 'case-study export':
         return await caseStudyExportCommand(io, options, positionals);
+      case 'rebuild init':
+        return await rebuildInitCommand(io, options, positionals);
       case 'decision create':
         return await decisionCreateCommand(io, options, positionals);
       case 'savepoint create':
@@ -92,6 +99,8 @@ export async function runCli(argv, io) {
         return await compareCommand(io, options, positionals);
       case 'guidance draft':
         return await guidanceDraftCommand(io, options);
+      case 'orchestrate':
+        return await orchestrateCommand(io, options, positionals);
       case 'log prompt':
       case 'log response':
       case 'log note':
@@ -153,6 +162,23 @@ async function doctorCommand(io, options) {
     write(io.stdout, formatDoctorReport(report));
   }
   return report.ok ? 0 : 1;
+}
+
+async function uiCommand(io, options) {
+  const ui = await createUiServer(io.cwd, {
+    host: options.host ?? '127.0.0.1',
+    port: options.port ? Number(options.port) : 8787,
+  });
+  write(io.stdout, `ADL UI listening at ${ui.url}\n`);
+  await new Promise((resolve) => {
+    const stop = async () => {
+      await ui.close();
+      resolve();
+    };
+    process.once('SIGINT', stop);
+    process.once('SIGTERM', stop);
+  });
+  return 0;
 }
 
 async function adapterListCommand(io) {
@@ -321,6 +347,32 @@ async function caseStudyExportCommand(io, options, positionals) {
   await exportExperiment(io.cwd, { format: 'json', out: `${outDir}/export.json` });
 
   write(io.stdout, `Wrote case-study exports to ${outDir}\n`);
+  return 0;
+}
+
+async function rebuildInitCommand(io, options, positionals) {
+  const title = positionals.join(' ').trim();
+  const result = await createRebuildLab(io.cwd, {
+    title,
+    base: options.base,
+    baseWorktree: options.baseWorktree,
+    branch: options.branch,
+    keep: splitOption(options.keep),
+    decision: options.decision,
+    savepoint: options.savepoint,
+    rationale: options.rationale,
+    variants: splitOption(options.variants),
+    worktree: options.worktree === true,
+  });
+  write(io.stdout, [
+    `Created rebuild lab`,
+    `Base lab: ${result.baseWorktree}`,
+    `Savepoint: ${result.savepoint.id}`,
+    `Variant worktrees:`,
+    ...result.variants.map((variant) => `- ${variant.name}: ${variant.worktreePath ?? variant.branch}`),
+    `Metadata commands: run ADL from ${result.baseWorktree}`,
+    '',
+  ].join('\n'));
   return 0;
 }
 
@@ -525,6 +577,44 @@ async function guidanceDraftCommand(io, options) {
   return 0;
 }
 
+async function orchestrateCommand(io, options, positionals) {
+  const store = await loadCurrentStore(io.cwd);
+  const variantName = positionals.join(' ').trim() || options.variant;
+  const variant = variantName ? findVariant(store, variantName) : null;
+  if (variantName && !variant) {
+    throw new Error(`Variant not found: ${variantName}`);
+  }
+  if (options.response) {
+    const responseEvent = await appendEvent(io.cwd, {
+      type: 'response',
+      body: options.response,
+      variantId: variant?.id,
+      actor: options.actor ?? 'agent',
+    });
+    write(io.stdout, `Recorded response ${responseEvent.id}\n`);
+  }
+  if (options.note) {
+    const noteEvent = await appendEvent(io.cwd, {
+      type: 'note',
+      body: options.note,
+      variantId: variant?.id,
+      actor: options.actor ?? 'human',
+    });
+    write(io.stdout, `Recorded note ${noteEvent.id}\n`);
+  }
+  if (options.checkpoint) {
+    const checkpoint = await appendEvent(io.cwd, {
+      type: 'checkpoint',
+      body: options.checkpoint,
+      variantId: variant?.id,
+      actor: options.actor ?? 'human',
+    });
+    write(io.stdout, `Recorded checkpoint ${checkpoint.id}\n`);
+  }
+  write(io.stdout, renderOrchestratorGuide(store, { variant: variantName }));
+  return 0;
+}
+
 async function logCommand(io, type, options, positionals) {
   const body = await eventBody(io, options, positionals);
   const variantId = options.variant ? await resolveVariantId(io.cwd, options.variant) : undefined;
@@ -543,10 +633,12 @@ async function runCommand(io, options, positionals) {
     throw new Error('Command is required after --');
   }
   const variantId = options.variant ? await resolveVariantId(io.cwd, options.variant) : undefined;
+  const started = Date.now();
   const result = spawnSync(positionals[0], positionals.slice(1), {
     cwd: io.cwd,
     encoding: 'utf8',
   });
+  const durationMs = Date.now() - started;
   const exitCode = result.status ?? 1;
   const event = await appendEvent(io.cwd, {
     type: 'command',
@@ -557,6 +649,9 @@ async function runCommand(io, options, positionals) {
       command: positionals,
       exitCode,
       signal: result.signal ?? null,
+      durationMs,
+      stdoutBytes: byteLength(result.stdout),
+      stderrBytes: byteLength(result.stderr),
       error: result.error ? {
         name: result.error.name,
         code: result.error.code,
@@ -564,11 +659,19 @@ async function runCommand(io, options, positionals) {
       } : null,
     },
   });
-  if (result.stdout) {
+  const quiet = options.quiet === true;
+  const tail = parseTail(options.tail);
+  if (!quiet && tail !== null) {
+    writeTail(io.stdout, result.stdout, tail);
+    writeTail(io.stderr, result.stderr, tail);
+  } else if (!quiet && result.stdout) {
     write(io.stdout, result.stdout);
   }
-  if (result.stderr) {
+  if (!quiet && tail === null && result.stderr) {
     write(io.stderr, result.stderr);
+  }
+  if (quiet && exitCode !== 0) {
+    write(io.stdout, `Command failed exit ${exitCode}\n`);
   }
   write(io.stdout, `Recorded command ${event.id} exit ${exitCode}\n`);
   return exitCode;
@@ -641,6 +744,7 @@ function helpText() {
 Usage:
   adl init "Experiment Title"
   adl doctor [--json]
+  adl ui [--host 127.0.0.1] [--port 8787]
   adl adapter list
   adl adapter show manual
   adl adapter scaffold manual --out .agent-lab/adapters/manual.md
@@ -653,6 +757,8 @@ Usage:
   adl case-study add-variant variant-name --from savepoint-title-or-id [--worktree]
   adl case-study record-result variant-name --artifact path --strengths "..." --weaknesses "..." --evidence "..." [--no-score]
   adl case-study export variant-a variant-b [variant-c] --out-dir .agent-lab/exports/case
+  adl rebuild init "Blank Rebuild" --keep AGENTS.md --variants docs-visible,prompt-only --worktree
+  adl orchestrate [variant-name] [--response "..."] [--checkpoint "..."]
   adl decision create "Decision Title" --rationale "Why this fork matters" [--parent node-id]
   adl savepoint create "Read project guidance?" --decision decision-title-or-id
   adl variant start variant-name --from savepoint-title-or-id [--worktree]
@@ -694,6 +800,31 @@ function quoteCommand(command) {
   return command.map((part) => (
     /[\s"']/.test(part) ? JSON.stringify(part) : part
   )).join(' ');
+}
+
+function parseTail(value) {
+  if (value === undefined || value === false) {
+    return null;
+  }
+  const count = Number(value);
+  if (!Number.isInteger(count) || count < 0) {
+    throw new Error('--tail must be a non-negative integer');
+  }
+  return count;
+}
+
+function writeTail(stream, value, count) {
+  if (!value || count === 0) {
+    return;
+  }
+  const lines = value.trimEnd().split('\n').slice(-count);
+  if (lines.length > 0 && lines[0] !== '') {
+    write(stream, `${lines.join('\n')}\n`);
+  }
+}
+
+function byteLength(value) {
+  return Buffer.byteLength(value ?? '', 'utf8');
 }
 
 function write(stream, value) {

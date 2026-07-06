@@ -7,6 +7,7 @@ import {
   createBranch,
   createWorktree,
   dirtyPathsOutsideLab,
+  git,
   getCurrentBranch,
   getCurrentCommit,
   getRepoMetadata,
@@ -134,6 +135,11 @@ export async function switchExperimentStore(repoPath, value) {
 }
 
 export async function loadCurrentStore(repoPath) {
+  const labRoot = await resolveLabRoot(repoPath);
+  return await loadCurrentStoreDirect(labRoot);
+}
+
+async function loadCurrentStoreDirect(repoPath) {
   const labDir = join(repoPath, '.agent-lab');
   const config = await readJson(join(labDir, 'config.json'));
   const experimentDir = join(labDir, 'experiments', config.currentExperimentId);
@@ -183,6 +189,41 @@ export async function loadCurrentStore(repoPath) {
     comparisons,
     guidanceDrafts,
   };
+}
+
+async function resolveLabRoot(repoPath) {
+  const root = getRepoMetadata(repoPath).path;
+  if (await exists(join(root, '.agent-lab', 'config.json'))) {
+    return root;
+  }
+
+  const worktrees = git(repoPath, ['worktree', 'list', '--porcelain'], { allowFailure: true });
+  if (worktrees.status === 0) {
+    for (const candidate of parseWorktreePaths(worktrees.stdout)) {
+      if (!await exists(join(candidate, '.agent-lab', 'config.json'))) {
+        continue;
+      }
+      const store = await loadCurrentStoreDirect(candidate);
+      const ownsCurrentWorktree = store.variants.some((variant) => (
+        variant.worktreePath && resolve(variant.worktreePath) === resolve(root)
+      ));
+      if (ownsCurrentWorktree) {
+        return candidate;
+      }
+    }
+  }
+
+  throw new Error(
+    `ADL lab metadata not found for ${root}. Run this command from the base lab worktree, or use a registered ADL variant worktree.`,
+  );
+}
+
+function parseWorktreePaths(value) {
+  return String(value)
+    .split('\n')
+    .filter((line) => line.startsWith('worktree '))
+    .map((line) => line.slice('worktree '.length).trim())
+    .filter(Boolean);
 }
 
 export async function createDecision(repoPath, input) {

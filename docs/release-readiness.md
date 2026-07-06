@@ -28,6 +28,12 @@ GitHub Actions runs the same command on pushes to `main` and pull requests.
 Before release, verify that the CLI supports:
 
 - production onboarding checks with `adl doctor`;
+- realtime local UI controls with `adl ui`;
+- guided workflow commands:
+  - `adl orchestrate`;
+  - `adl rebuild init`;
+  - `adl run --quiet`;
+  - `adl run --tail`;
 - provider-neutral adapter/plugin recipe commands:
   - `adl adapter list`;
   - `adl adapter show`;
