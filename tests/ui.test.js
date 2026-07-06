@@ -13,6 +13,11 @@ test('UI server provides controls and realtime experiment state', async () => {
     assert.match(html, /Init Case Study/);
     assert.match(html, /Create worktree/);
     assert.match(html, /Event Stream/);
+    assert.match(html, /id="message"/);
+    assert.match(html, /role="status"/);
+    assert.match(html, /function setMessage/);
+    assert.match(html, /response\.ok/);
+    assert.match(html, /result\.ok===false/);
     assert.match(html, /function esc/);
     assert.match(html, /esc\(e\.bodySummary\)/);
     assert.match(html, /esc\(v\.name\)/);
@@ -23,6 +28,14 @@ test('UI server provides controls and realtime experiment state', async () => {
     const before = await fetchJson(`${ui.url}/api/state`);
     assert.equal(before.initialized, false);
 
+    const invalidJson = await fetch(`${ui.url}/api/log-note`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{',
+    });
+    assert.equal(invalidJson.status, 400);
+    assert.match((await invalidJson.json()).error, /Invalid JSON/);
+
     const initialized = await postJson(`${ui.url}/api/case-study-init`, {
       title: 'UI Lab',
       decision: 'Context strategy',
@@ -30,6 +43,17 @@ test('UI server provides controls and realtime experiment state', async () => {
       rationale: 'Exercise UI controls',
     });
     assert.equal(initialized.ok, true);
+
+    const invalidVariant = await fetch(`${ui.url}/api/variants`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ from: 'Before UI task' }),
+    });
+    assert.equal(invalidVariant.status, 200);
+    assert.deepEqual(await invalidVariant.json(), {
+      ok: false,
+      error: 'Variant name is required',
+    });
 
     const added = await postJson(`${ui.url}/api/variants`, {
       name: 'docs-visible',
@@ -60,6 +84,17 @@ test('UI server provides controls and realtime experiment state', async () => {
     assert.match(event, /"initialized":true/);
   } finally {
     await ui.close();
+    await cleanup(repo);
+  }
+});
+
+test('UI server close is idempotent', async () => {
+  const repo = await createTempGitRepo();
+  const ui = await createUiServer(repo, { host: '127.0.0.1', port: 0 });
+  try {
+    await ui.close();
+    await ui.close();
+  } finally {
     await cleanup(repo);
   }
 });

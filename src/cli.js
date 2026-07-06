@@ -171,7 +171,12 @@ async function uiCommand(io, options) {
   });
   write(io.stdout, `ADL UI listening at ${ui.url}\n`);
   await new Promise((resolve) => {
+    let stopping = false;
     const stop = async () => {
+      if (stopping) {
+        return;
+      }
+      stopping = true;
       await ui.close();
       resolve();
     };
