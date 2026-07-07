@@ -2,6 +2,7 @@ import http from 'node:http';
 import { createDecision, createExperimentStore, createNewExperimentStore, createSavepoint, findVariant, loadCurrentStore, startVariant } from './store.js';
 import { appendEvent } from './events.js';
 import { exportExperiment } from './export.js';
+import { renderOrchestratorGuide } from './orchestrator.js';
 import { renderTree } from './render.js';
 import { runDoctor } from './doctor.js';
 import { setStrategy } from './strategy.js';
@@ -108,15 +109,34 @@ async function handleRequest(repoPath, request, response) {
   }
   if (request.method === 'POST' && url.pathname === '/api/log-note') {
     const body = await readJsonBody(request);
+    const event = await appendUiEvent(repoPath, 'note', body, 'human');
+    sendJson(response, 200, { ok: true, event });
+    return;
+  }
+  if (request.method === 'POST' && url.pathname === '/api/log-response') {
+    const body = await readJsonBody(request);
+    const event = await appendUiEvent(repoPath, 'response', body, 'agent');
+    sendJson(response, 200, { ok: true, event });
+    return;
+  }
+  if (request.method === 'POST' && url.pathname === '/api/checkpoint') {
+    const body = await readJsonBody(request);
+    const event = await appendUiEvent(repoPath, 'checkpoint', body, 'human');
+    sendJson(response, 200, { ok: true, event });
+    return;
+  }
+  if (request.method === 'POST' && url.pathname === '/api/orchestrate') {
+    const body = await readJsonBody(request);
     const store = await loadCurrentStore(repoPath);
     const variant = body.variant ? findVariant(store, body.variant) : null;
-    const event = await appendEvent(repoPath, {
-      type: 'note',
-      body: body.body,
-      variantId: variant?.id,
-      actor: body.actor ?? 'human',
+    if (body.variant && !variant) {
+      sendJson(response, 200, { ok: false, error: `Variant not found: ${body.variant}` });
+      return;
+    }
+    sendJson(response, 200, {
+      ok: true,
+      prompt: renderOrchestratorGuide(store, { variant: variant?.name ?? body.variant }),
     });
-    sendJson(response, 200, { ok: true, event });
     return;
   }
   if (request.method === 'POST' && url.pathname === '/api/export') {
@@ -169,6 +189,22 @@ async function buildState(repoPath) {
   }
 }
 
+async function appendUiEvent(repoPath, type, body, defaultActor) {
+  const store = await loadCurrentStore(repoPath);
+  const variant = body.variant ? findVariant(store, body.variant) : null;
+  if (body.variant && !variant) {
+    const error = new Error(`Variant not found: ${body.variant}`);
+    error.statusCode = 400;
+    throw error;
+  }
+  return await appendEvent(repoPath, {
+    type,
+    body: body.body,
+    variantId: variant?.id,
+    actor: body.actor ?? defaultActor,
+  });
+}
+
 async function streamEvents(repoPath, request, response) {
   response.writeHead(200, {
     'content-type': 'text/event-stream',
@@ -200,7 +236,7 @@ function renderUiHtml() {
 </head>
 <body>
 <div class="shell">
-  <header class="top"><span class="brand">Agent Decision Lab</span><span id="live" class="status-dot"></span><span id="liveText">connecting</span><button id="refresh">Refresh</button><button id="export" class="primary">Export HTML</button><div id="message" role="status" class="message">Ready</div></header>
+  <header class="top" data-region="command-bar"><span class="brand">Agent Decision Lab</span><span id="live" class="status-dot"></span><span id="liveText">connecting</span><button id="refresh">Refresh</button><button id="export" class="primary">Export HTML</button><div id="message" role="status" class="message">Ready</div></header>
   <aside class="left">
     <div class="label">Experiment</div>
     <h2 id="title">Loading</h2>
@@ -213,7 +249,7 @@ function renderUiHtml() {
       <button id="initBtn">Init</button>
     </div>
   </aside>
-  <main class="main">
+  <main class="main" data-region="decision-workspace">
     <div class="panel"><div class="label">Decision Tree</div><pre id="tree" class="tree"></pre></div>
   </main>
   <aside class="right">
@@ -231,10 +267,20 @@ function renderUiHtml() {
       <div class="field"><textarea id="noteBody" rows="4" placeholder="Write an observation"></textarea></div>
       <button id="noteBtn">Log Note</button>
     </div>
+    <div class="panel" data-region="selected-route">
+      <div class="label">Selected Route</div>
+      <div class="field"><select id="routeSelect"></select></div>
+      <button id="promptBtn">Prompt</button>
+      <pre id="promptBlock" class="tree" style="min-height:120px"></pre>
+      <div class="field"><textarea id="responseBody" rows="3" placeholder="Paste agent response summary"></textarea></div>
+      <button id="responseBtn">Log Response</button>
+      <div class="field"><input id="checkpointBody" placeholder="Checkpoint summary"></div>
+      <button id="checkpointBtn">Checkpoint</button>
+    </div>
     <div class="panel"><div class="label">Doctor</div><div id="doctor"></div></div>
-    <div class="panel"><div class="label">Variants</div><div id="variants"></div></div>
+    <div class="panel" data-region="route-board"><div class="label">Variants</div><div id="variants"></div></div>
   </aside>
-  <section class="events"><div class="label">Event Stream</div><div id="events"></div></section>
+  <section class="events" data-region="activity-stream"><div class="label">Event Stream</div><div id="events"></div></section>
 </div>
 <script>
 const stateUrl='/api/state';
@@ -249,13 +295,16 @@ async function refresh(){render(await (await fetch(stateUrl)).json());}
 function render(state){latest=state;document.querySelector('#live').classList.add('live');document.querySelector('#liveText').textContent='live';document.querySelector('#title').textContent=state.initialized?state.experiment.title:'No lab initialized';document.querySelector('#tree').textContent=state.treeText||state.error||'Initialize a case study to see the tree.';renderMetrics(state);renderDoctor(state.doctor);renderVariants(state.variants||[]);renderEvents(state.events||[]);}
 function renderMetrics(state){const counts=state.counts||{};document.querySelector('#metrics').innerHTML=['decisions','savepoints','variants','events','evaluations'].map(k=>'<div class="metric"><span>'+esc(k)+'</span><strong>'+esc(counts[k]??0)+'</strong></div>').join('');}
 function renderDoctor(doctor){document.querySelector('#doctor').innerHTML=(doctor?.checks||[]).map(c=>'<div class="item"><strong>'+esc(c.label)+'</strong><br><span class="'+statusClass(c.status)+'">'+esc(c.status)+'</span> '+esc(c.message)+'</div>').join('');}
-function renderVariants(variants){document.querySelector('#variants').innerHTML=variants.map(v=>'<div class="item"><strong>'+esc(v.name)+'</strong><br><code>'+esc(v.branch)+'</code><br>'+ esc(v.worktreePath||'base lab') +'</div>').join('');const select=document.querySelector('#noteVariant');select.innerHTML='<option value="">No variant</option>'+variants.map(v=>'<option value="'+esc(v.name)+'">'+esc(v.name)+'</option>').join('');}
+function renderVariants(variants){document.querySelector('#variants').innerHTML=variants.map(v=>'<div class="item"><strong>'+esc(v.name)+'</strong><br><code>'+esc(v.branch)+'</code><br>'+ esc(v.worktreePath||'base lab') +'</div>').join('');const options='<option value="">No variant</option>'+variants.map(v=>'<option value="'+esc(v.name)+'">'+esc(v.name)+'</option>').join('');document.querySelector('#noteVariant').innerHTML=options;document.querySelector('#routeSelect').innerHTML=options;}
 function renderEvents(events){document.querySelector('#events').innerHTML=events.slice().reverse().map(e=>'<div class="item"><strong>'+esc(e.type)+'</strong> <code>'+esc(e.variantId||'no variant')+'</code><br>'+esc(e.bodySummary)+'</div>').join('');}
 document.querySelector('#refresh').onclick=()=>runAction(async()=>{await refresh();return 'Refreshed';});
 document.querySelector('#export').onclick=()=>runAction(async()=>{const result=await api('/api/export',{format:'html'});return 'Exported '+result.out;});
 document.querySelector('#initBtn').onclick=()=>runAction(async()=>{const result=await api('/api/case-study-init',{title:initTitle.value||'UI Case Study',decision:initDecision.value||'Context strategy',savepoint:initSavepoint.value||'Before UI task'});return 'Initialized '+result.experiment.title;});
 document.querySelector('#variantBtn').onclick=()=>runAction(async()=>{const result=await api('/api/variants',{name:variantName.value,from:variantFrom.value,contextPolicy:variantPolicy.value,worktree:variantWorktree.checked});return 'Added '+result.variant.name;});
 document.querySelector('#noteBtn').onclick=()=>runAction(async()=>{await api('/api/log-note',{variant:noteVariant.value,body:noteBody.value});noteBody.value='';return 'Logged note';});
+document.querySelector('#promptBtn').onclick=()=>runAction(async()=>{const result=await api('/api/orchestrate',{variant:routeSelect.value});promptBlock.textContent=result.prompt;return 'Prompt ready';});
+document.querySelector('#responseBtn').onclick=()=>runAction(async()=>{await api('/api/log-response',{variant:routeSelect.value,body:responseBody.value});responseBody.value='';return 'Logged response';});
+document.querySelector('#checkpointBtn').onclick=()=>runAction(async()=>{await api('/api/checkpoint',{variant:routeSelect.value,body:checkpointBody.value});checkpointBody.value='';return 'Checkpoint recorded';});
 const source=new EventSource('/api/events');source.addEventListener('state',event=>render(JSON.parse(event.data)));refresh();
 </script>
 </body>

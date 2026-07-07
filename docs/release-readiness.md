@@ -28,8 +28,10 @@ GitHub Actions runs the same command on pushes to `main` and pull requests.
 Before release, verify that the CLI supports:
 
 - production onboarding checks with `adl doctor`;
+- checkout orientation with `adl whereami`;
 - realtime local UI controls with `adl ui`;
 - guided workflow commands:
+  - `adl lab start`;
   - `adl orchestrate`;
   - `adl rebuild init`;
   - `adl run --quiet`;
@@ -60,6 +62,9 @@ Before release, verify that the CLI supports:
   - qualitative findings;
   - privacy/redaction status;
   - export freshness.
+- bounded insight export with `adl insight export`;
+- public-sharing preflight with `adl privacy audit`;
+- local recorder-only MCP server startup with `adl mcp serve`.
 
 ## Privacy Gates
 
@@ -73,7 +78,13 @@ workspace:
 - public examples use sanitized paths and do not include raw transcripts;
 - private `.agent-lab/` experiment data is not committed to this repository.
 
-Before sharing an export, run a private-path scan:
+Before sharing an export, run the built-in audit:
+
+```bash
+adl privacy audit --path .agent-lab/experiments/<experiment-id>/exports
+```
+
+For a raw backup check, scan for common strings:
 
 ```bash
 rg "/Users|/home|/private/tmp|Bearer|api_key|password" .agent-lab/experiments/<experiment-id>/exports

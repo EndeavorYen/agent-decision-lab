@@ -107,3 +107,31 @@ Sanitized examples may describe a real live run only after replacing local
 workspace paths, worktree paths, raw transcripts, and private artifacts with
 generic placeholders. Default exports should redact home-directory and temporary
 directory paths to `[REDACTED_LOCAL_PATH]`.
+
+## Privacy Audit
+
+Run a privacy audit before sharing reports, committing examples, publishing a
+release, or attaching exported artifacts to external systems:
+
+```bash
+adl privacy audit --path .agent-lab/exports
+adl privacy audit --public-files
+adl privacy audit --blocklist .agent-lab/privacy-blocklist.txt --json
+```
+
+The audit separates findings by severity:
+
+- `fail`: likely secrets, direct private identifiers, or configured blocklist
+  terms;
+- `warn`: local absolute paths or other disclosure risks;
+- `ok`: no findings.
+
+Fail-severity findings return a non-zero exit code. Local blocklists live in
+the private workspace and should not be required in the public tool repository.
+
+## MCP Safety
+
+The MCP adapter is local-first and recorder-only. Its first version does not
+execute arbitrary shell commands, call model providers, edit target code,
+commit, push, merge, or upload private lab data. MCP tools should return event
+ids and summaries, not raw private transcripts by default.

@@ -76,7 +76,8 @@ Deliverables:
 
 ## Phase 5: Privacy and Export Profiles
 
-Status: complete for MVP summary exports; richer profiles remain future work.
+Status: complete for MVP summary exports and insight packs; richer profiles
+remain future work.
 
 Goal: make experiment output shareable when sanitized.
 
@@ -85,6 +86,8 @@ Deliverables:
 - redaction profile;
 - private versus summary export modes;
 - export warnings;
+- privacy audit command;
+- insight export profile;
 - synthetic privacy tests;
 - documentation for what can be committed.
 
@@ -153,7 +156,12 @@ Deliverables:
 - provider-neutral adapter/plugin recipes;
 - production onboarding and `adl doctor`;
 - local realtime UI controls;
+- stable UI command bar, route board, workspace, selected route, and activity
+  stream regions;
 - guided orchestration and blank rebuild lab workflow;
+- guided first-run lab wizard;
+- whereami/context checkout orientation;
+- MCP stdio recorder adapter;
 - quiet/tail command capture;
 - base lab metadata resolution from registered variant worktrees;
 - Reality Slap Skill sanitized case-study summary;

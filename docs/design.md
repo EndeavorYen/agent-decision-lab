@@ -248,6 +248,53 @@ adl case-study export docs-visible prompt-only --out-dir .agent-lab/exports/case
 evaluations. `case-study export` writes comparison, guidance, SVG, HTML,
 Markdown, and JSON outputs.
 
+### Guided First Run
+
+```bash
+adl lab start "Agent Strategy Lab" \
+  --decision "Context visibility" \
+  --savepoint "Before strategy fork" \
+  --variants docs-visible,prompt-only \
+  --worktree
+```
+
+The guided command refuses dirty non-lab files, creates the experiment,
+decision, clean savepoint, variants, and strategy metadata, then prints the next
+safe commands.
+
+### Context Orientation
+
+```bash
+adl whereami
+adl whereami --json
+```
+
+The context command reports whether the operator is in the base lab checkout, a
+registered variant worktree, or an unknown checkout. It never prints raw prompt
+or response bodies.
+
+### Privacy And Insight Commands
+
+```bash
+adl privacy audit --path .agent-lab/exports --json
+adl insight export --variants docs-visible,prompt-only \
+  --out .agent-lab/exports/insight-pack.json
+```
+
+Privacy audit is a preflight for public sharing. Insight export is a bounded,
+redacted package for review and analysis.
+
+### MCP Adapter
+
+```bash
+adl mcp serve
+```
+
+The first MCP adapter is a local stdio recorder. It exposes doctor, status,
+whereami, tree, orchestrate, event logging, checkpoint, command metadata
+recording, and redacted summary export tools. It does not execute shell
+commands or call model providers.
+
 ### Inspect Worktrees
 
 ```bash

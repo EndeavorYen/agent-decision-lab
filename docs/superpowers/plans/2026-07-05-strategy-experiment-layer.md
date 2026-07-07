@@ -227,7 +227,7 @@ Run a code-review pass over the full diff against `origin/main`, fix Critical an
 
 - [ ] **Step 7: Package and Git verification**
 
-Run: `env npm_config_cache=/private/tmp/adl-npm-cache npm pack --dry-run`
+Run: `env npm_config_cache=<temp-npm-cache> npm pack --dry-run`
 Expected: dry-run succeeds and package excludes private `.agent-lab` data.
 
 Run: `git diff --check`

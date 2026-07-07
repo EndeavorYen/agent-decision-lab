@@ -3,11 +3,16 @@ import { access, readFile } from 'node:fs/promises';
 import { listAdapters, renderAdapterGuide } from './adapters.js';
 import { parseArgs } from './args.js';
 import { compareVariants } from './compare.js';
+import { formatContextReport, inspectContext } from './context.js';
 import { formatDoctorReport, runDoctor } from './doctor.js';
 import { appendEvent } from './events.js';
 import { exportExperiment } from './export.js';
 import { draftGuidance } from './guidance.js';
+import { exportInsightPack } from './insight.js';
+import { formatGuidedLabResult, startGuidedLab } from './lab.js';
+import { serveMcp } from './mcp.js';
 import { renderOrchestratorGuide } from './orchestrator.js';
+import { auditPrivacy, formatPrivacyAudit } from './privacy-audit.js';
 import { createRebuildLab } from './rebuild.js';
 import { renderTree } from './render.js';
 import { createUiServer } from './ui.js';
@@ -42,10 +47,21 @@ export async function runCli(argv, io) {
         return await initCommand(io, options, positionals);
       case 'status':
         return await statusCommand(io);
+      case 'whereami':
+      case 'context':
+        return await whereamiCommand(io, options);
       case 'doctor':
         return await doctorCommand(io, options);
       case 'ui':
         return await uiCommand(io, options);
+      case 'lab start':
+        return await labStartCommand(io, options, positionals);
+      case 'privacy audit':
+        return await privacyAuditCommand(io, options);
+      case 'insight export':
+        return await insightExportCommand(io, options, positionals);
+      case 'mcp serve':
+        return await mcpServeCommand(io);
       case 'adapter list':
       case 'plugin list':
         return await adapterListCommand(io);
@@ -154,6 +170,16 @@ async function statusCommand(io) {
   return 0;
 }
 
+async function whereamiCommand(io, options) {
+  const context = await inspectContext(io.cwd);
+  if (options.json === true) {
+    write(io.stdout, `${JSON.stringify(context, null, 2)}\n`);
+  } else {
+    write(io.stdout, formatContextReport(context));
+  }
+  return 0;
+}
+
 async function doctorCommand(io, options) {
   const report = await runDoctor(io.cwd);
   if (options.json === true) {
@@ -183,6 +209,62 @@ async function uiCommand(io, options) {
     process.once('SIGINT', stop);
     process.once('SIGTERM', stop);
   });
+  return 0;
+}
+
+async function labStartCommand(io, options, positionals) {
+  const title = positionals.join(' ').trim();
+  const result = await startGuidedLab(io.cwd, {
+    title,
+    description: options.description ?? '',
+    owner: options.owner ?? null,
+    decision: options.decision,
+    savepoint: options.savepoint,
+    rationale: options.rationale,
+    variants: options.variants,
+    contextPolicies: options.contextPolicies ?? options.contextPolicy,
+    worktree: options.worktree === true,
+    labExists: await labExists(io.cwd),
+  });
+  write(io.stdout, formatGuidedLabResult(result));
+  return 0;
+}
+
+async function privacyAuditCommand(io, options) {
+  const report = await auditPrivacy(io.cwd, {
+    path: options.path,
+    publicFiles: options.publicFiles === true,
+    blocklist: options.blocklist,
+  });
+  if (options.json === true) {
+    write(io.stdout, `${JSON.stringify(report, null, 2)}\n`);
+  } else {
+    write(io.stdout, formatPrivacyAudit(report));
+  }
+  return report.status === 'fail' ? 1 : 0;
+}
+
+async function insightExportCommand(io, options, positionals) {
+  const variants = [
+    ...splitOption(options.variants),
+    ...positionals,
+  ];
+  const pack = await exportInsightPack(io.cwd, {
+    variants,
+    out: options.out,
+    includePrivate: options.includePrivate === true,
+    redact: options.redact !== false,
+  });
+  if (options.out) {
+    write(io.stdout, `Wrote insight pack to ${options.out}\n`);
+  } else {
+    write(io.stdout, `${JSON.stringify(pack, null, 2)}\n`);
+  }
+  return 0;
+}
+
+async function mcpServeCommand(io) {
+  await serveMcp(io.cwd, io);
   return 0;
 }
 
@@ -628,6 +710,7 @@ async function logCommand(io, type, options, positionals) {
     body,
     variantId,
     actor: options.actor ?? 'human',
+    metadata: parseMetadata(options.metadata),
   });
   write(io.stdout, `Logged ${event.type} ${event.id}\n`);
   return 0;
@@ -684,9 +767,11 @@ async function runCommand(io, options, positionals) {
 
 async function checkpointCommand(io, options, positionals) {
   const body = await eventBody(io, options, positionals);
+  const variantId = options.variant ? await resolveVariantId(io.cwd, options.variant) : undefined;
   const event = await appendEvent(io.cwd, {
     type: 'checkpoint',
     body,
+    variantId,
     actor: options.actor ?? 'human',
   });
   write(io.stdout, `Created checkpoint ${event.id}\n`);
@@ -749,6 +834,11 @@ function helpText() {
 Usage:
   adl init "Experiment Title"
   adl doctor [--json]
+  adl whereami [--json]
+  adl lab start "Strategy Lab" --variants docs-visible,prompt-only [--worktree]
+  adl privacy audit [--path .agent-lab/exports] [--public-files] [--json]
+  adl insight export --variants a,b --out .agent-lab/exports/insight-pack.json
+  adl mcp serve
   adl ui [--host 127.0.0.1] [--port 8787]
   adl adapter list
   adl adapter show manual
@@ -779,7 +869,7 @@ Usage:
   adl compare variant-a variant-b [variant-c] --out comparison.md
   adl guidance draft --comparison comparison-id --out guidance.md
   adl log prompt|response|note|command|artifact [text] [--stdin] [--variant variant-name]
-  adl checkpoint "Checkpoint name"
+  adl checkpoint "Checkpoint name" [--variant variant-name]
   adl tree
   adl run [--variant variant-name] -- command args...
   adl export --format json|markdown|mermaid|svg|html [--out path] [--include-private] [--no-redact]
@@ -913,4 +1003,14 @@ function parseScores(value) {
       return [key.trim(), Number(rawValue)];
     }),
   );
+}
+
+function parseMetadata(value) {
+  if (!value) {
+    return {};
+  }
+  if (typeof value === 'object') {
+    return value;
+  }
+  return JSON.parse(String(value));
 }
