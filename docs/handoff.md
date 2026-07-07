@@ -13,6 +13,12 @@ Implemented commands:
 - `adl --help`
 - `adl init`
 - `adl doctor`
+- `adl whereami`
+- `adl context`
+- `adl lab start`
+- `adl privacy audit`
+- `adl insight export`
+- `adl mcp serve`
 - `adl status`
 - `adl adapter list`
 - `adl adapter show`
@@ -143,7 +149,14 @@ single-binary distribution becomes the top priority.
 - Guided orchestration output for deciding the next operator route.
 - Blank rebuild lab setup for multi-agent reconstruction experiments.
 - Local realtime UI with case-study controls, worktree variant creation, note
-  logging, HTML export, doctor checks, and Server-Sent Events.
+  logging, response logging, checkpoints, selected-route prompt rendering, HTML
+  export, doctor checks, and Server-Sent Events.
+- Guided `lab start` first-run flow for a clean two-variant strategy lab.
+- `whereami`/`context` checkout orientation for base, registered variant
+  worktree, and unknown checkout states.
+- Privacy audit command for export and public-file preflight.
+- Insight pack export for bounded human or LLM review.
+- Local recorder-only MCP stdio server.
 - Dirty-tree safety outside `.agent-lab/`.
 - Tree rendering.
 - JSON, Markdown, Mermaid, SVG, and dashboard-style HTML export.
@@ -164,6 +177,8 @@ single-binary distribution becomes the top priority.
   experiment?
 - Should future agent adapters use `adl run` as their event-capture primitive,
   or write richer provider-specific event records?
+- Should the MCP adapter add full SDK transport compatibility, or keep the
+  dependency-free JSON-lines transport until a runtime dependency is accepted?
 
 ## First Example Run
 
@@ -190,5 +205,6 @@ Before release or wider use:
 - run `npm run verify`;
 - review `docs/release-readiness.md`;
 - keep at least one private live case study export as release evidence;
-- confirm sanitized exports do not include local paths or raw transcripts;
+- run `adl privacy audit` on sanitized exports and public files;
+- confirm sanitized insight packs do not include raw transcripts;
 - decide whether to add TypeScript or linting before a larger public release.

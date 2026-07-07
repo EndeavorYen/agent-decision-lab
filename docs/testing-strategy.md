@@ -65,6 +65,8 @@ paths.
 Verify that redaction and export controls behave as expected:
 
 - token-like strings are redacted in exports;
+- `adl privacy audit` catches secret-like values, local paths, and blocklist
+  matches;
 - private transcript fields can be omitted from summary exports;
 - export metadata records whether redaction was applied;
 - warnings appear before full transcript export.
@@ -94,7 +96,9 @@ npm run smoke
 ```
 
 `npm test` runs unit, integration, export, redaction, savepoint, strategy,
-comparison, visualization, and CLI smoke tests with Node's built-in test runner.
+comparison, visualization, MCP adapter, privacy audit, insight pack, whereami,
+guided wizard, realtime UI, and CLI smoke tests with Node's built-in test
+runner.
 `npm run smoke` creates a temporary Git repository, initializes a live synthetic
 project guidance strategy experiment with three variants from one savepoint, logs events,
 records artifacts and evaluations, renders the tree, writes JSON/Markdown/
@@ -149,8 +153,16 @@ The MVP test suite should prove that:
 - metadata is valid after every supported CLI command;
 - `adl doctor` reports Git, Node, experiment, privacy-ignore, and dirty-tree
   readiness;
+- `adl whereami` identifies base, registered variant worktree, and unknown
+  checkout context;
+- `adl lab start` creates a guided two-variant strategy lab and rejects dirty
+  non-lab files;
+- `adl privacy audit` catches public-sharing disclosure risks;
+- `adl insight export` writes a bounded redacted analysis pack;
+- `adl mcp serve` exposes recorder-only MCP tools and can log events;
 - `adl ui` can initialize a case study, add a variant, log a note, export HTML,
-  and stream realtime state with Server-Sent Events;
+  render prompts, record responses and checkpoints, and stream realtime state
+  with Server-Sent Events;
 - ADL metadata commands invoked inside registered variant worktrees resolve the
   owning base lab store;
 - `adl run --quiet` and `adl run --tail` reduce terminal noise while preserving

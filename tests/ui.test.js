@@ -13,6 +13,14 @@ test('UI server provides controls and realtime experiment state', async () => {
     assert.match(html, /Init Case Study/);
     assert.match(html, /Create worktree/);
     assert.match(html, /Event Stream/);
+    assert.match(html, /data-region="command-bar"/);
+    assert.match(html, /data-region="route-board"/);
+    assert.match(html, /data-region="decision-workspace"/);
+    assert.match(html, /data-region="selected-route"/);
+    assert.match(html, /data-region="activity-stream"/);
+    assert.match(html, /id="responseBtn"/);
+    assert.match(html, /id="checkpointBtn"/);
+    assert.match(html, /id="promptBlock"/);
     assert.match(html, /id="message"/);
     assert.match(html, /role="status"/);
     assert.match(html, /function setMessage/);
@@ -69,6 +77,23 @@ test('UI server provides controls and realtime experiment state', async () => {
       variant: 'docs-visible',
     });
     assert.equal(note.event.type, 'note');
+
+    const response = await postJson(`${ui.url}/api/log-response`, {
+      body: 'UI response',
+      variant: 'docs-visible',
+    });
+    assert.equal(response.event.type, 'response');
+
+    const checkpoint = await postJson(`${ui.url}/api/checkpoint`, {
+      body: 'UI checkpoint',
+      variant: 'docs-visible',
+    });
+    assert.equal(checkpoint.event.type, 'checkpoint');
+
+    const prompt = await postJson(`${ui.url}/api/orchestrate`, {
+      variant: 'docs-visible',
+    });
+    assert.match(prompt.prompt, /docs-visible/);
 
     const exported = await postJson(`${ui.url}/api/export`, { format: 'html' });
     assert.match(exported.out, /\.agent-lab\/exports\/ui-report\.html/);

@@ -92,7 +92,17 @@ adl --help
 ```bash
 adl init "Improve Checkout Flow"
 adl doctor
+adl whereami --json
+adl lab start "Agent Strategy Lab" \
+  --decision "Context visibility" \
+  --savepoint "Before strategy fork" \
+  --variants docs-visible,prompt-only \
+  --worktree
 adl ui --host 127.0.0.1 --port 8787
+adl privacy audit --path .agent-lab/exports --json
+adl insight export --variants docs-visible,prompt-only \
+  --out .agent-lab/exports/insight-pack.json
+adl mcp serve
 adl adapter list
 adl adapter scaffold manual --out .agent-lab/adapters/manual.md
 adl experiment create "Bald Patch Case Study"
@@ -138,6 +148,25 @@ adl export --format html --out .agent-lab/exports/report.html
 The CLI stores records under `.agent-lab/` in the target repository. Event
 bodies are omitted from default exports, and local filesystem paths are
 redacted by default; pass `--include-private` only for private, local analysis.
+
+`adl lab start` is the guided first-run path. It refuses dirty non-lab files,
+creates the experiment, decision, clean savepoint, variants, and strategy
+metadata, then prints the next commands to run.
+
+`adl whereami` explains whether the current checkout is the base lab, a
+registered variant worktree, or an unknown checkout. Use `--json` for stable
+automation output.
+
+`adl privacy audit` scans exports or tracked public files for common disclosure
+risks before sharing. It exits non-zero on fail-severity findings such as
+secret-like values or local blocklist matches.
+
+`adl insight export` creates a bounded redacted analysis pack for a human or LLM
+reviewer. See [Insight Pack Schema](docs/insight-pack-schema.md).
+
+`adl mcp serve` starts a local stdio MCP adapter so MCP-capable agents can list
+ADL tools, inspect status, and record prompts, responses, notes, checkpoints,
+and supplied command metadata without executing arbitrary shell commands.
 
 Use `adl experiment create` when a repository already has `.agent-lab/` data
 and you want a separate case study without overwriting previous experiments.
@@ -190,6 +219,7 @@ or local review scripts without depending on a specific model provider.
 - [Security and Privacy](docs/security-and-privacy.md)
 - [Onboarding](docs/onboarding.md)
 - [Realtime UI](docs/ui.md)
+- [Insight Pack Schema](docs/insight-pack-schema.md)
 - [Release Readiness](docs/release-readiness.md)
 - [Reality Slap Skill Case Study](docs/examples/reality-slap-skill-case-study.md)
 - [Roadmap](docs/roadmap.md)

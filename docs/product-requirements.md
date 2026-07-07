@@ -158,6 +158,8 @@ result, benchmark, transcript, or manual review note.
 ### Export
 
 - Export a machine-readable JSON bundle for LLM or analytics use.
+- Export a bounded insight pack for human or LLM review that omits raw prompt
+  and response bodies by default.
 - Export a human-readable Markdown summary.
 - Include enough metadata to compare variants:
   - decision path;
@@ -173,6 +175,7 @@ result, benchmark, transcript, or manual review note.
 - Do not upload data automatically.
 - Keep experiment records in the user workspace.
 - Provide redaction hooks or built-in best-effort redaction before export.
+- Provide a privacy audit command for release and public-sharing preflight.
 - Make it clear when exports may contain private prompts, code snippets, file
   paths, or model outputs.
 - Provide `.gitignore` guidance for private experiment data.
@@ -180,6 +183,8 @@ result, benchmark, transcript, or manual review note.
 ## Future Requirements
 
 - Direct model or coding-agent execution adapters.
+- Richer MCP transport and client compatibility beyond the first local recorder
+  adapter.
 - Interactive TUI for tree navigation.
 - Web dashboard for visual comparison.
 - Integration with eval systems such as OpenAI Evals or Braintrust.
@@ -213,6 +218,13 @@ The MVP is successful when a user can:
 - operate a lab from a local realtime UI for common actions;
 - use guided orchestration to know the next route and worktree;
 - run noisy verification commands with quiet or tail output.
+- start a guided two-variant strategy lab with one command;
+- identify whether the current checkout is the base lab, a registered variant,
+  or an unknown worktree;
+- audit exports and public files for disclosure risks before sharing;
+- export a bounded insight pack for human or LLM review;
+- let MCP-capable local agents record ADL events through typed tools without
+  shell execution authority.
 
 ## Example Case Study
 

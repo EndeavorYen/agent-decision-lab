@@ -21,6 +21,7 @@ From the target repository:
 
 ```bash
 adl doctor
+adl whereami
 ```
 
 If the doctor warns that private experiment data is not ignored, add this to
@@ -31,7 +32,19 @@ experiment metadata:
 .agent-lab/
 ```
 
-Initialize the case study:
+Initialize the case study with the guided first-run command:
+
+```bash
+adl lab start "Agent Strategy Case Study" \
+  --decision "Which collaboration strategy should the agent use?" \
+  --savepoint "Before strategy fork" \
+  --variants docs-visible,prompt-only \
+  --context-policies docs-visible,prompt-only \
+  --worktree
+```
+
+The command refuses to continue when non-lab files are dirty. If you need the
+manual flow instead, use the lower-level commands:
 
 ```bash
 adl case-study init "Agent Strategy Case Study" \
@@ -78,6 +91,9 @@ Export a redacted report pack:
 ```bash
 adl case-study export docs-visible prompt-only \
   --out-dir .agent-lab/exports/strategy-case
+adl insight export --variants docs-visible,prompt-only \
+  --out .agent-lab/exports/strategy-case/insight-pack.json
+adl privacy audit --path .agent-lab/exports/strategy-case
 ```
 
 Open the generated HTML report from the private target workspace for review.
@@ -111,13 +127,29 @@ v0.1.0 release depend on a model provider.
 Before relying on a case study:
 
 - run `adl doctor` in the target repository;
+- run `adl whereami` before recording events from a branch or worktree;
 - confirm `.agent-lab/` is ignored or intentionally private;
 - create variants from one clean savepoint;
 - record visible and withheld context in strategy metadata;
 - use `adl run` for verification commands;
 - use `--no-score` when human or LLM review will judge outcomes later;
 - export JSON, Markdown, SVG, and HTML with redaction enabled;
-- scan public exports for local paths and secrets before sharing.
+- scan public exports with `adl privacy audit` before sharing.
+
+## MCP Adapter
+
+For MCP-capable local agents, start the stdio adapter from the target
+repository:
+
+```bash
+adl mcp serve
+```
+
+The first MCP adapter exposes typed ADL recording tools only. It can inspect
+doctor/status/context, render the tree, generate orchestrator guidance, and
+record prompt, response, note, checkpoint, and supplied command metadata. It
+does not run arbitrary shell commands, call model providers, commit, push,
+merge, or upload lab data.
 
 ## Recovery Checklist
 
