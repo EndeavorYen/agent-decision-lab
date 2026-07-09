@@ -366,9 +366,12 @@ adl orchestrate prompt-only
 adl rebuild init "Blank Rebuild" --keep AGENTS.md --variants docs-visible,prompt-only --worktree
 ```
 
-`adl ui` starts a dependency-free local HTTP server with controls for case-study
-initialization, variant creation, note logging, HTML export, doctor checks, and
-realtime state streaming over Server-Sent Events.
+`adl ui` starts a dependency-free local HTTP server with a graph-first operator
+workspace. The UI centers the decision tree, current route, selected node, and
+safe next actions instead of requiring the operator to remember CLI commands.
+It supports case-study initialization, variant creation, prompt rendering, note
+and response logging, checkpoints, HTML export, doctor checks, and realtime
+state streaming over Server-Sent Events.
 
 `adl orchestrate` does not call a model. It renders the next operator route,
 the metadata command location, the variant worktree, and the prompt context to
@@ -490,13 +493,25 @@ status, and export freshness.
 adl ui --host 127.0.0.1 --port 8787
 ```
 
-The UI exposes local controls for case-study initialization, variant creation,
-note logging, and HTML export. It renders the same decision tree and recent
-events as the CLI. Realtime updates use Server-Sent Events from `/api/events`;
-the browser receives current state immediately and then periodic state refreshes.
+The UI exposes a graph-first control model:
+
+- Command Bar: realtime state, refresh, export, and action result messages.
+- Route Rail: experiment metrics, active route, variants, init, and add-variant
+  controls.
+- Graph Workspace: central decision tree and route nodes for understanding the
+  current position.
+- Node Inspector: selected route metadata and safe actions for preparing a
+  prompt, recording notes or responses, and preserving checkpoints.
+- Activity Stream: recent notes, responses, checkpoints, and other events.
+
+It renders the same decision tree and recent events as the CLI. Realtime
+updates use Server-Sent Events from `/api/events`; the browser receives current
+state immediately and then periodic state refreshes.
 
 The UI is intentionally not a hosted dashboard. It runs on the operator's
-machine and writes only target-local `.agent-lab/` metadata.
+machine and writes only target-local `.agent-lab/` metadata. It must not run
+arbitrary shell commands, call an LLM, commit, push, open pull requests, or
+manage remote branches.
 
 ## Guided Operation
 
