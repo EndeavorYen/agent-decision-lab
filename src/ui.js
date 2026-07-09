@@ -262,6 +262,7 @@ function renderUiHtml() {
   <aside class="route-rail" data-region="route-board">
     <div class="label">Experiment</div>
     <h2 id="title">Loading</h2>
+    <div class="panel"><div class="label">Routes</div><div id="variants" class="route-list"></div></div>
     <div id="metrics"></div>
     <div class="panel" id="initPanel">
       <div class="label">Init Case Study</div>
@@ -270,7 +271,6 @@ function renderUiHtml() {
       <label class="field"><span>Savepoint</span><input id="initSavepoint" placeholder="Savepoint"></label>
       <button id="initBtn">Init</button>
     </div>
-    <div class="panel"><div class="label">Routes</div><div id="variants" class="route-list"></div></div>
     <div class="panel">
       <div class="label">Add Variant</div>
       <label class="field"><span>Name</span><input id="variantName" placeholder="variant-name"></label>
