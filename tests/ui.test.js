@@ -13,11 +13,21 @@ test('UI server provides controls and realtime experiment state', async () => {
     assert.match(html, /Init Case Study/);
     assert.match(html, /Create worktree/);
     assert.match(html, /Event Stream/);
+    assert.match(html, /Graph Workspace/);
+    assert.match(html, /Where am I/);
+    assert.match(html, /Next Safe Actions/);
     assert.match(html, /data-region="command-bar"/);
     assert.match(html, /data-region="route-board"/);
     assert.match(html, /data-region="decision-workspace"/);
     assert.match(html, /data-region="selected-route"/);
+    assert.match(html, /data-region="node-inspector"/);
     assert.match(html, /data-region="activity-stream"/);
+    assert.match(html, /data-action-group="prepare"/);
+    assert.match(html, /data-action-group="record"/);
+    assert.match(html, /data-action-group="preserve"/);
+    assert.match(html, /id="routeMeta"/);
+    assert.match(html, /id="graphNodes"/);
+    assert.match(html, /id="noteBody"/);
     assert.match(html, /id="responseBtn"/);
     assert.match(html, /id="checkpointBtn"/);
     assert.match(html, /id="promptBlock"/);
@@ -27,6 +37,8 @@ test('UI server provides controls and realtime experiment state', async () => {
     assert.match(html, /response\.ok/);
     assert.match(html, /result\.ok===false/);
     assert.match(html, /function esc/);
+    assert.match(html, /function renderGraph/);
+    assert.match(html, /function selectRoute/);
     assert.match(html, /esc\(e\.bodySummary\)/);
     assert.match(html, /esc\(v\.name\)/);
 
@@ -104,6 +116,11 @@ test('UI server provides controls and realtime experiment state', async () => {
     assert.equal(after.variants.some((variant) => variant.name === 'docs-visible'), true);
     assert.equal(after.variants.some((variant) => /docs[_-]visible/.test(variant.worktreePath ?? '')), true);
     assert.equal(after.events.some((event) => event.bodySummary === 'UI note'), true);
+    assert.equal(Array.isArray(after.routeSummaries), true);
+    const docsVisible = after.routeSummaries.find((route) => route.name === 'docs-visible');
+    assert.equal(docsVisible.name, 'docs-visible');
+    assert.equal(docsVisible.eventCount, 3);
+    assert.match(docsVisible.location, /worktree|base lab/);
 
     const event = await readFirstServerSentEvent(`${ui.url}/api/events`);
     assert.match(event, /"initialized":true/);
