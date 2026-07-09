@@ -39,6 +39,7 @@ test('UI server provides controls and realtime experiment state', async () => {
     assert.match(html, /function esc/);
     assert.match(html, /function renderGraph/);
     assert.match(html, /function selectRoute/);
+    assert.match(html, /routeSelectionTouched/);
     assert.match(html, /esc\(e\.bodySummary\)/);
     assert.match(html, /esc\(v\.name\)/);
 
