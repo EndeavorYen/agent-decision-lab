@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdir, utimes } from 'node:fs/promises';
+import { join } from 'node:path';
 import { cleanup, createTempGitRepo } from './helpers.js';
 import { appendEvent } from '../src/events.js';
 import {
@@ -61,6 +63,25 @@ test('does not reclaim an old lock while its owner process is still alive', asyn
     await Promise.all([first, second]);
 
     assert.equal(maximumActive, 1);
+  } finally {
+    await cleanup(repo);
+  }
+});
+
+test('reclaims an old lock when owner metadata was never written', async () => {
+  const repo = await createTempGitRepo();
+  try {
+    const lockDir = join(repo, '.agent-lab', '.write-lock');
+    await mkdir(lockDir, { recursive: true });
+    const old = new Date(Date.now() - 1_000);
+    await utimes(lockDir, old, old);
+
+    let acquired = false;
+    await withLabLock(repo, async () => {
+      acquired = true;
+    }, { staleMs: 20, timeoutMs: 200 });
+
+    assert.equal(acquired, true);
   } finally {
     await cleanup(repo);
   }

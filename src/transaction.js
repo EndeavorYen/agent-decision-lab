@@ -5,6 +5,7 @@ import {
   readFile,
   rename,
   rm,
+  stat,
   writeFile,
 } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
@@ -79,7 +80,10 @@ async function removeStaleLock(lockDir, staleMs) {
   const owner = await readFile(join(lockDir, 'owner.json'), 'utf8')
     .then((value) => JSON.parse(value))
     .catch(() => null);
-  const acquiredAt = owner?.acquiredAt ? Date.parse(owner.acquiredAt) : Number.NaN;
+  const ownerAcquiredAt = owner?.acquiredAt ? Date.parse(owner.acquiredAt) : Number.NaN;
+  const acquiredAt = Number.isFinite(ownerAcquiredAt)
+    ? ownerAcquiredAt
+    : await stat(lockDir).then((info) => info.mtimeMs).catch(() => Number.NaN);
   if (!Number.isFinite(acquiredAt) || Date.now() - acquiredAt <= staleMs) {
     return false;
   }
