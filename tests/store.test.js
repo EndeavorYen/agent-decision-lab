@@ -9,12 +9,30 @@ import {
   createNewExperimentStore,
   listExperimentStores,
   loadCurrentStore,
+  saveConfig,
   switchExperimentStore,
 } from '../src/store.js';
 
 test('slugifies human titles into stable ids', () => {
   assert.equal(slugify('Improve Checkout Flow!'), 'improve_checkout_flow');
   assert.equal(slugify('  Context   Strategy  '), 'context_strategy');
+});
+
+test('saving stale active-variant state does not revert the current experiment', async () => {
+  const repo = await createTempGitRepo();
+  try {
+    await createExperimentStore(repo, { title: 'First Lab' });
+    const staleStore = await loadCurrentStore(repo);
+    const second = await createNewExperimentStore(repo, { title: 'Second Lab' });
+
+    staleStore.config.activeVariantId = null;
+    await saveConfig(staleStore);
+
+    const config = await readJson(join(repo, '.agent-lab/config.json'));
+    assert.equal(config.currentExperimentId, second.id);
+  } finally {
+    await cleanup(repo);
+  }
 });
 
 test('initializes .agent-lab with experiment metadata and config', async () => {
@@ -28,7 +46,8 @@ test('initializes .agent-lab with experiment metadata and config', async () => {
 
     assert.match(experiment.id, /^exp_\d{8}_improve_checkout_flow/);
     assert.equal(experiment.title, 'Improve Checkout Flow');
-    assert.equal(experiment.schemaVersion, 'agent-decision-lab/v1');
+    assert.equal(experiment.schemaVersion, 'agent-decision-lab/v2');
+    assert.equal(experiment.revision, 0);
     assert.equal(experiment.privacy.classification, 'private');
 
     const config = await readJson(join(repo, '.agent-lab/config.json'));

@@ -8,7 +8,8 @@ test('UI server provides controls and realtime experiment state', async () => {
   const repo = await createTempGitRepo();
   const ui = await createUiServer(repo, { host: '127.0.0.1', port: 0 });
   try {
-    const html = await fetchText(`${ui.url}/`);
+    const authorized = (path) => authorizedUrl(ui, path);
+    const html = await fetchText(ui.launchUrl);
     assert.match(html, /Agent Decision Lab/);
     assert.match(html, /Init Case Study/);
     assert.match(html, /Create worktree/);
@@ -46,10 +47,10 @@ test('UI server provides controls and realtime experiment state', async () => {
     const favicon = await fetch(`${ui.url}/favicon.ico`);
     assert.equal(favicon.status, 204);
 
-    const before = await fetchJson(`${ui.url}/api/state`);
+    const before = await fetchJson(authorized('/api/state'));
     assert.equal(before.initialized, false);
 
-    const invalidJson = await fetch(`${ui.url}/api/log-note`, {
+    const invalidJson = await fetch(authorized('/api/log-note'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: '{',
@@ -57,7 +58,7 @@ test('UI server provides controls and realtime experiment state', async () => {
     assert.equal(invalidJson.status, 400);
     assert.match((await invalidJson.json()).error, /Invalid JSON/);
 
-    const initialized = await postJson(`${ui.url}/api/case-study-init`, {
+    const initialized = await postJson(authorized('/api/case-study-init'), {
       title: 'UI Lab',
       decision: 'Context strategy',
       savepoint: 'Before UI task',
@@ -65,7 +66,7 @@ test('UI server provides controls and realtime experiment state', async () => {
     });
     assert.equal(initialized.ok, true);
 
-    const invalidVariant = await fetch(`${ui.url}/api/variants`, {
+    const invalidVariant = await fetch(authorized('/api/variants'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ from: 'Before UI task' }),
@@ -76,7 +77,7 @@ test('UI server provides controls and realtime experiment state', async () => {
       error: 'Variant name is required',
     });
 
-    const added = await postJson(`${ui.url}/api/variants`, {
+    const added = await postJson(authorized('/api/variants'), {
       name: 'docs-visible',
       from: 'Before UI task',
       contextPolicy: 'docs-visible',
@@ -85,33 +86,33 @@ test('UI server provides controls and realtime experiment state', async () => {
     assert.equal(added.variant.name, 'docs-visible');
     assert.match(added.variant.worktreePath, /docs[_-]visible/);
 
-    const note = await postJson(`${ui.url}/api/log-note`, {
+    const note = await postJson(authorized('/api/log-note'), {
       body: 'UI note',
       variant: 'docs-visible',
     });
     assert.equal(note.event.type, 'note');
 
-    const response = await postJson(`${ui.url}/api/log-response`, {
+    const response = await postJson(authorized('/api/log-response'), {
       body: 'UI response',
       variant: 'docs-visible',
     });
     assert.equal(response.event.type, 'response');
 
-    const checkpoint = await postJson(`${ui.url}/api/checkpoint`, {
+    const checkpoint = await postJson(authorized('/api/checkpoint'), {
       body: 'UI checkpoint',
       variant: 'docs-visible',
     });
     assert.equal(checkpoint.event.type, 'checkpoint');
 
-    const prompt = await postJson(`${ui.url}/api/orchestrate`, {
+    const prompt = await postJson(authorized('/api/orchestrate'), {
       variant: 'docs-visible',
     });
     assert.match(prompt.prompt, /docs-visible/);
 
-    const exported = await postJson(`${ui.url}/api/export`, { format: 'html' });
+    const exported = await postJson(authorized('/api/export'), { format: 'html' });
     assert.match(exported.out, /\.agent-lab\/exports\/ui-report\.html/);
 
-    const after = await fetchJson(`${ui.url}/api/state`);
+    const after = await fetchJson(authorized('/api/state'));
     assert.equal(after.initialized, true);
     assert.equal(after.experiment.title, 'UI Lab');
     assert.equal(after.variants.some((variant) => variant.name === 'docs-visible'), true);
@@ -123,7 +124,7 @@ test('UI server provides controls and realtime experiment state', async () => {
     assert.equal(docsVisible.eventCount, 3);
     assert.match(docsVisible.location, /worktree|base lab/);
 
-    const event = await readFirstServerSentEvent(`${ui.url}/api/events`);
+    const event = await readFirstServerSentEvent(authorized('/api/events'));
     assert.match(event, /"initialized":true/);
   } finally {
     await ui.close();
@@ -138,6 +139,41 @@ test('UI server close is idempotent', async () => {
     await ui.close();
     await ui.close();
   } finally {
+    await cleanup(repo);
+  }
+});
+
+test('UI server requires its launch token and rejects foreign or oversized writes', async () => {
+  const repo = await createTempGitRepo();
+  const ui = await createUiServer(repo, { host: '127.0.0.1', port: 0 });
+  try {
+    assert.equal(typeof ui.token, 'string');
+    assert.equal(ui.token.length >= 32, true);
+
+    const origin = new URL(ui.url).origin;
+    assert.equal((await fetch(`${origin}/api/state`)).status, 401);
+
+    const authorizedState = await fetch(`${origin}/api/state?token=${ui.token}`);
+    assert.equal(authorizedState.status, 200);
+
+    const foreignOrigin = await fetch(`${origin}/api/log-note?token=${ui.token}`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: 'https://attacker.example.invalid',
+      },
+      body: JSON.stringify({ body: 'blocked' }),
+    });
+    assert.equal(foreignOrigin.status, 403);
+
+    const oversized = await fetch(`${origin}/api/log-note?token=${ui.token}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ body: 'x'.repeat(1024 * 1024) }),
+    });
+    assert.equal(oversized.status, 413);
+  } finally {
+    await ui.close();
     await cleanup(repo);
   }
 });
@@ -192,4 +228,10 @@ async function readFirstServerSentEvent(url) {
       }
     }, 2000).unref();
   });
+}
+
+function authorizedUrl(ui, path) {
+  const url = new URL(path, ui.url);
+  url.searchParams.set('token', ui.token);
+  return url.toString();
 }

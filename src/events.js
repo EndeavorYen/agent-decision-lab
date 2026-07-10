@@ -1,6 +1,6 @@
-import { appendFile } from 'node:fs/promises';
 import { makeEventId } from './ids.js';
-import { loadCurrentStore } from './store.js';
+import { loadCurrentStore, resolveInvocationVariant } from './store.js';
+import { appendJsonLine, withLabLock } from './transaction.js';
 
 const supportedTypes = new Set([
   'prompt',
@@ -16,18 +16,24 @@ export async function appendEvent(repoPath, input) {
     throw new Error(`Unsupported event type: ${input?.type}`);
   }
 
-  const store = await loadCurrentStore(repoPath);
-  const event = {
-    id: makeEventId(),
-    type: input.type,
-    experimentId: store.experiment.id,
-    variantId: input.variantId ?? store.config.activeVariantId ?? null,
-    createdAt: new Date().toISOString(),
-    actor: input.actor ?? 'human',
-    body: input.body ?? '',
-    metadata: input.metadata ?? {},
-  };
+  const initialStore = await loadCurrentStore(repoPath);
+  return withLabLock(initialStore.labRoot, async () => {
+    const store = await loadCurrentStore(repoPath);
+    const event = {
+      id: makeEventId(),
+      type: input.type,
+      experimentId: store.experiment.id,
+      variantId: input.variantId
+        ?? resolveInvocationVariant(store)?.id
+        ?? store.config.activeVariantId
+        ?? null,
+      createdAt: new Date().toISOString(),
+      actor: input.actor ?? 'human',
+      body: input.body ?? '',
+      metadata: input.metadata ?? {},
+    };
 
-  await appendFile(store.paths.eventsPath, `${JSON.stringify(event)}\n`);
-  return event;
+    await appendJsonLine(store.paths.eventsPath, event);
+    return event;
+  });
 }

@@ -5,6 +5,7 @@ import { exportExperiment } from './export.js';
 import { renderOrchestratorGuide } from './orchestrator.js';
 import { renderTree } from './render.js';
 import { findVariant, loadCurrentStore } from './store.js';
+import { version } from './version.js';
 
 const toolDefinitions = [
   ['doctor', 'Return local Git, Node, lab, privacy, and dirty-tree readiness.'],
@@ -19,6 +20,62 @@ const toolDefinitions = [
   ['record_command', 'Record supplied command output metadata; does not execute shell commands.'],
   ['export_summary', 'Create a redacted summary export pack.'],
 ];
+
+const emptySchema = {
+  type: 'object',
+  properties: {},
+  additionalProperties: false,
+};
+
+const eventSchema = {
+  type: 'object',
+  properties: {
+    body: { type: 'string' },
+    variant: { type: 'string' },
+    actor: { type: 'string' },
+    metadata: { type: 'object', additionalProperties: true },
+  },
+  required: ['body'],
+  additionalProperties: false,
+};
+
+const toolSchemas = {
+  doctor: emptySchema,
+  status: emptySchema,
+  whereami: emptySchema,
+  tree: emptySchema,
+  orchestrate: {
+    type: 'object',
+    properties: { variant: { type: 'string' } },
+    additionalProperties: false,
+  },
+  log_prompt: eventSchema,
+  log_response: eventSchema,
+  log_note: eventSchema,
+  checkpoint: eventSchema,
+  record_command: {
+    type: 'object',
+    properties: {
+      command: { type: 'array', items: { type: 'string' } },
+      variant: { type: 'string' },
+      actor: { type: 'string' },
+      body: { type: 'string' },
+      summary: { type: 'string' },
+      status: { type: ['integer', 'string', 'null'] },
+      exitCode: { type: ['integer', 'null'] },
+      stdoutBytes: { type: ['integer', 'null'] },
+      stderrBytes: { type: ['integer', 'null'] },
+      durationMs: { type: ['integer', 'null'] },
+    },
+    required: ['command'],
+    additionalProperties: false,
+  },
+  export_summary: {
+    type: 'object',
+    properties: { out: { type: 'string' } },
+    additionalProperties: false,
+  },
+};
 
 export async function serveMcp(repoPath, io) {
   let buffer = '';
@@ -59,7 +116,7 @@ async function handleRequest(repoPath, request) {
     case 'initialize':
       return {
         protocolVersion: '2024-11-05',
-        serverInfo: { name: 'agent-decision-lab', version: '0.1.0' },
+        serverInfo: { name: 'agent-decision-lab', version },
         capabilities: { tools: {} },
       };
     case 'tools/list':
@@ -67,7 +124,7 @@ async function handleRequest(repoPath, request) {
         tools: toolDefinitions.map(([name, description]) => ({
           name,
           description,
-          inputSchema: { type: 'object', properties: {}, additionalProperties: true },
+          inputSchema: toolSchemas[name],
         })),
       };
     case 'tools/call':
@@ -78,6 +135,7 @@ async function handleRequest(repoPath, request) {
 }
 
 async function callTool(repoPath, name, args) {
+  validateToolArguments(name, args);
   switch (name) {
     case 'doctor':
       return textResult(formatDoctorReport(await runDoctor(repoPath)));
@@ -118,6 +176,25 @@ async function callTool(repoPath, name, args) {
     }
     default:
       throw new Error(`Unknown MCP tool: ${name}`);
+  }
+}
+
+function validateToolArguments(name, args) {
+  const schema = toolSchemas[name];
+  if (!schema) {
+    return;
+  }
+  for (const required of schema.required ?? []) {
+    if (args[required] === undefined || args[required] === null || args[required] === '') {
+      throw new Error(`${name} requires ${required}`);
+    }
+  }
+  if (schema.additionalProperties === false) {
+    for (const key of Object.keys(args)) {
+      if (!Object.hasOwn(schema.properties, key)) {
+        throw new Error(`${name} does not accept ${key}`);
+      }
+    }
   }
 }
 

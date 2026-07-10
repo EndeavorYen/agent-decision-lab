@@ -1,6 +1,8 @@
 import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { dirtyPathsOutsideLab, git } from './git.js';
+import { inspectRecovery } from './recovery.js';
+import { CURRENT_SCHEMA_VERSION, LEGACY_SCHEMA_VERSION } from './schema.js';
 
 export async function runDoctor(repoPath) {
   const checks = [];
@@ -46,6 +48,43 @@ export async function runDoctor(repoPath) {
       dirty.length === 0 ? 'ok' : 'warn',
       dirty.length === 0 ? 'working tree has no non-lab changes' : dirty.join(', '),
     ));
+  }
+
+  if (labInitialized) {
+    try {
+      const config = JSON.parse(await readFile(join(repoPath, '.agent-lab', 'config.json'), 'utf8'));
+      const legacy = config.schemaVersion === LEGACY_SCHEMA_VERSION;
+      checks.push(check(
+        'metadata-schema',
+        'Metadata schema',
+        config.schemaVersion === CURRENT_SCHEMA_VERSION ? 'ok' : legacy ? 'warn' : 'fail',
+        config.schemaVersion === CURRENT_SCHEMA_VERSION
+          ? CURRENT_SCHEMA_VERSION
+          : legacy
+            ? `${LEGACY_SCHEMA_VERSION}; preview upgrade with adl migrate --dry-run`
+            : `unsupported ${config.schemaVersion ?? '<missing>'}`,
+      ));
+    } catch (error) {
+      checks.push(check('metadata-schema', 'Metadata schema', 'fail', error.message));
+    }
+    try {
+      const recovery = await inspectRecovery(repoPath);
+      checks.push(check(
+        'incomplete-operations',
+        'Incomplete operations',
+        recovery.pending.length === 0 ? 'ok' : 'warn',
+        recovery.pending.length === 0
+          ? 'no incomplete Git or metadata operations'
+          : `${recovery.pending.length} operation(s) require review with adl repair --dry-run`,
+      ));
+    } catch (error) {
+      checks.push(check(
+        'metadata-integrity',
+        'Metadata integrity',
+        'fail',
+        error.message,
+      ));
+    }
   }
 
   return {

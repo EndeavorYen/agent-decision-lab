@@ -1,6 +1,13 @@
 import { join } from 'node:path';
 import { makeNodeId } from './ids.js';
-import { findSavepoint, findVariant, loadCurrentStore, readJson, writeJson } from './store.js';
+import { bumpRevision } from './schema.js';
+import {
+  findSavepoint,
+  findVariant,
+  readJson,
+  withCurrentStoreLock,
+  writeJson,
+} from './store.js';
 
 const defaultRubric = {
   id: 'code-review-rule-quality',
@@ -17,7 +24,7 @@ const defaultRubric = {
 };
 
 export async function setStrategy(repoPath, input) {
-  const store = await loadCurrentStore(repoPath);
+  return withCurrentStoreLock(repoPath, async (store) => {
   const variant = findVariant(store, input.variant);
   if (!variant) {
     throw new Error(`Variant not found: ${input.variant}`);
@@ -44,10 +51,11 @@ export async function setStrategy(repoPath, input) {
 
   await writeJson(join(store.paths.strategiesDir, `${variant.id}.json`), strategy);
   return strategy;
+  });
 }
 
 export async function addArtifact(repoPath, input) {
-  const store = await loadCurrentStore(repoPath);
+  return withCurrentStoreLock(repoPath, async (store) => {
   const variant = input.variant ? findVariant(store, input.variant) : null;
   if (input.variant && !variant) {
     throw new Error(`Variant not found: ${input.variant}`);
@@ -66,12 +74,14 @@ export async function addArtifact(repoPath, input) {
   const artifacts = store.artifacts.artifacts.filter((existing) => existing.id !== artifact.id);
   artifacts.push(artifact);
   store.artifacts.artifacts = artifacts;
+  bumpRevision(store.artifacts);
   await writeJson(store.paths.artifactsPath, store.artifacts);
   return artifact;
+  });
 }
 
 export async function evaluateVariant(repoPath, input) {
-  const store = await loadCurrentStore(repoPath);
+  return withCurrentStoreLock(repoPath, async (store) => {
   const variant = findVariant(store, input.variant);
   if (!variant) {
     throw new Error(`Variant not found: ${input.variant}`);
@@ -101,6 +111,7 @@ export async function evaluateVariant(repoPath, input) {
 
   await writeJson(join(store.paths.evaluationsDir, `${evaluation.id}.json`), evaluation);
   return evaluation;
+  });
 }
 
 export async function ensureRubric(store, rubricId) {

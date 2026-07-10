@@ -92,7 +92,7 @@ the current state safely.
 
 Prompt text and model output are untrusted inputs.
 
-The CLI should not execute model-suggested commands. The v0.1.0 adapter/plugin
+The CLI should not execute model-suggested commands. The adapter/plugin
 surface is a provider-neutral recipe layer: it can scaffold local instructions
 and record command output through `adl run`, but it does not grant extra
 authority to the model. Future executable adapters must preserve that boundary.
@@ -135,3 +135,17 @@ The MCP adapter is local-first and recorder-only. Its first version does not
 execute arbitrary shell commands, call model providers, edit target code,
 commit, push, merge, or upload private lab data. MCP tools should return event
 ids and summaries, not raw private transcripts by default.
+
+## Concurrent Metadata Safety
+
+Version 0.2 serializes metadata mutations with a lab-scoped writer lock and
+replaces JSON documents atomically. Aggregate documents carry revisions.
+Interrupted Git-affecting operations remain in the private operation journal
+and are surfaced by `adl doctor` and `adl repair --dry-run`.
+
+## Local UI Safety
+
+Every `adl ui` launch creates a random launch token. State, event-stream, and
+mutation routes require that token; POST requests with a foreign Origin are
+rejected, and JSON bodies are limited to 1 MiB. Treat the printed launch URL as
+private for the lifetime of the UI process.

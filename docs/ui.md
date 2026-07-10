@@ -12,6 +12,11 @@ adl ui --host 127.0.0.1 --port 8787
 The command prints the local URL. The UI stays local to the machine; it does
 not upload experiment data.
 
+The printed URL contains a random per-launch token. API and EventSource
+requests require the launch token, mutation requests reject foreign origins,
+and JSON request bodies are limited to 1 MiB. Do not paste the launch URL into
+public logs or issues.
+
 ## Workspace
 
 The UI is organized around the operator's current position in the decision

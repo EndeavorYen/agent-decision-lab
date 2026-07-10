@@ -1,5 +1,8 @@
 # MVP Implementation Design
 
+This document records the original v0.1 storage design. The active v0.2
+transaction, schema, and recovery model is documented in `docs/design.md`.
+
 ## Purpose
 
 This document turns the product definition into the first usable implementation

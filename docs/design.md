@@ -56,6 +56,8 @@ The default store is file-backed and local:
       artifacts.json
       variants/
         <variant-id>.json
+      operations/
+        <operation-id>.json
       exports/
         latest.json
         latest.md
@@ -63,6 +65,23 @@ The default store is file-backed and local:
 
 The store should be simple enough to inspect manually and strict enough to
 validate with schemas.
+
+### Transaction and Recovery Model
+
+Version 0.2 uses a lab-scoped writer lock shared by the base checkout and every
+registered variant worktree. A writer acquires the lock, reloads current state,
+and replaces JSON through a same-directory temporary file and atomic rename.
+Event JSONL appends happen while the same lock is held. Mutable aggregate
+documents use schema `agent-decision-lab/v2` and carry a monotonic revision.
+
+Git-affecting commands create a private operation journal record before branch
+or worktree side effects. Completed operations remain auditable; prepared or
+failed operations appear in `adl doctor` and `adl repair --dry-run`. Repair is
+advisory in v0.2 and never deletes or rewrites Git state.
+
+Commands invoked from a registered variant worktree use that worktree for
+implicit event attribution. The base checkout may use the configured active
+variant. An explicit `--variant` always wins.
 
 ## Core Entity Model
 
@@ -85,7 +104,8 @@ needs to return later and create another clean branch from the same state.
 
 ```json
 {
-  "schemaVersion": "agent-decision-lab/v1",
+  "schemaVersion": "agent-decision-lab/v2",
+  "revision": 0,
   "id": "exp_20260703_checkout_flow",
   "title": "Improve Checkout Flow",
   "description": "Compare collaboration strategies while improving checkout validation in a toy app.",

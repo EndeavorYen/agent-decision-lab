@@ -53,3 +53,56 @@ test('ADL commands invoked inside a registered variant worktree use the owning l
     await cleanup(repo);
   }
 });
+
+test('events without an explicit variant use the invoking registered worktree', async () => {
+  const repo = await createTempGitRepo();
+  try {
+    assert.equal(
+      runAdl(repo, [
+        'case-study',
+        'init',
+        'Attribution Lab',
+        '--decision',
+        'Route',
+        '--savepoint',
+        'Before task',
+      ]).status,
+      0,
+    );
+
+    const alphaResult = runAdl(repo, [
+      'case-study',
+      'add-variant',
+      'alpha',
+      '--from',
+      'Before task',
+      '--worktree',
+    ]);
+    const alphaWorktree = alphaResult.stdout.match(/Worktree: (.+)/)?.[1];
+    assert.ok(alphaWorktree);
+
+    assert.equal(
+      runAdl(repo, [
+        'case-study',
+        'add-variant',
+        'beta',
+        '--from',
+        'Before task',
+        '--worktree',
+      ]).status,
+      0,
+    );
+
+    assert.equal(
+      runAdl(alphaWorktree, ['checkpoint', 'alpha worktree checkpoint']).status,
+      0,
+    );
+
+    const store = await loadCurrentStore(repo);
+    const event = store.events.find((record) => record.body === 'alpha worktree checkpoint');
+    const alpha = store.variants.find((record) => record.name === 'alpha');
+    assert.equal(event.variantId, alpha.id);
+  } finally {
+    await cleanup(repo);
+  }
+});

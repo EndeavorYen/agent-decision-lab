@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { createDecision, createExperimentStore, createNewExperimentStore, createSavepoint, findVariant, loadCurrentStore, startVariant } from './store.js';
 import { appendEvent } from './events.js';
 import { exportExperiment } from './export.js';
@@ -10,8 +11,10 @@ import { setStrategy } from './strategy.js';
 export async function createUiServer(repoPath, options = {}) {
   const host = options.host ?? '127.0.0.1';
   const port = Number(options.port ?? 8787);
+  const token = randomBytes(24).toString('hex');
+  let origin = null;
   const server = http.createServer((request, response) => {
-    handleRequest(repoPath, request, response).catch((error) => {
+    handleRequest(repoPath, request, response, { token, origin }).catch((error) => {
       sendJson(response, error.statusCode ?? 500, { ok: false, error: error.message });
     });
   });
@@ -19,6 +22,7 @@ export async function createUiServer(repoPath, options = {}) {
   await new Promise((resolve) => server.listen(port, host, resolve));
   const address = server.address();
   const actualPort = typeof address === 'object' && address ? address.port : port;
+  origin = `http://${host}:${actualPort}`;
   let closed = false;
   let closePromise = null;
   server.once('close', () => {
@@ -26,7 +30,9 @@ export async function createUiServer(repoPath, options = {}) {
   });
   return {
     server,
-    url: `http://${host}:${actualPort}`,
+    url: origin,
+    launchUrl: `${origin}/?token=${token}`,
+    token,
     close: () => {
       if (closed) {
         return Promise.resolve();
@@ -49,14 +55,22 @@ export async function createUiServer(repoPath, options = {}) {
   };
 }
 
-async function handleRequest(repoPath, request, response) {
+async function handleRequest(repoPath, request, response, security) {
   const url = new URL(request.url, 'http://localhost');
-  if (request.method === 'GET' && url.pathname === '/') {
-    sendHtml(response, renderUiHtml());
-    return;
-  }
   if (request.method === 'GET' && url.pathname === '/favicon.ico') {
     sendNoContent(response);
+    return;
+  }
+  if (!authorizedRequest(request, url, security.token)) {
+    sendJson(response, 401, { ok: false, error: 'Unauthorized' });
+    return;
+  }
+  if (request.method === 'POST' && !sameOriginRequest(request, security.origin)) {
+    sendJson(response, 403, { ok: false, error: 'Forbidden origin' });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/') {
+    sendHtml(response, renderUiHtml(security.token));
     return;
   }
   if (request.method === 'GET' && url.pathname === '/api/state') {
@@ -244,7 +258,7 @@ async function streamEvents(repoPath, request, response) {
   request.on('close', () => clearInterval(timer));
 }
 
-function renderUiHtml() {
+function renderUiHtml(token) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -327,14 +341,15 @@ function renderUiHtml() {
   <section class="activity" data-region="activity-stream"><div class="label">Event Stream</div><div id="events" class="event-grid"></div></section>
 </div>
 <script>
-const stateUrl='/api/state';
+const authToken=${JSON.stringify(token)};
+const stateUrl='/api/state?token='+encodeURIComponent(authToken);
 let latest={};
 let currentRouteName='';
 let routeSelectionTouched=false;
 const escapeMap={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
 function esc(value){return String(value??'').replace(/[&<>"']/g,ch=>escapeMap[ch]);}
 function statusClass(value){return ['ok','warn','fail'].includes(value)?value:'fail';}
-async function api(path, body){const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const result=await response.json();if(!response.ok||result.ok===false){throw new Error(result.error||'Request failed '+response.status);}return result;}
+async function api(path, body){const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json','x-adl-token':authToken},body:JSON.stringify(body)});const result=await response.json();if(!response.ok||result.ok===false){throw new Error(result.error||'Request failed '+response.status);}return result;}
 function setMessage(text,type='ok'){const node=document.querySelector('#message');node.textContent=text;node.className='message '+type;}
 async function runAction(action){try{const message=await action();if(message){setMessage(message,'ok');}await refresh();}catch(error){setMessage(error.message,'fail');}}
 async function refresh(){render(await (await fetch(stateUrl)).json());}
@@ -359,7 +374,7 @@ document.querySelector('#responseBtn').onclick=()=>runAction(async()=>{await api
 document.querySelector('#checkpointBtn').onclick=()=>runAction(async()=>{await api('/api/checkpoint',{variant:routeSelect.value,body:checkpointBody.value});checkpointBody.value='';return 'Checkpoint recorded';});
 document.querySelector('#routeSelect').onchange=event=>selectRoute(event.target.value,true);
 document.querySelector('#noteVariant').onchange=event=>selectRoute(event.target.value,true);
-const source=new EventSource('/api/events');source.addEventListener('state',event=>render(JSON.parse(event.data)));refresh();
+const source=new EventSource('/api/events?token='+encodeURIComponent(authToken));source.addEventListener('state',event=>render(JSON.parse(event.data)));refresh();
 </script>
 </body>
 </html>`;
@@ -372,8 +387,20 @@ async function isInitialized(repoPath) {
 
 async function readJsonBody(request) {
   let body = '';
+  let bytes = 0;
+  let tooLarge = false;
   for await (const chunk of request) {
+    bytes += Buffer.byteLength(chunk);
+    if (bytes > 1024 * 1024) {
+      tooLarge = true;
+      continue;
+    }
     body += chunk;
+  }
+  if (tooLarge) {
+    const error = new Error('JSON request body exceeds 1 MiB limit');
+    error.statusCode = 413;
+    throw error;
   }
   try {
     return body ? JSON.parse(body) : {};
@@ -382,6 +409,18 @@ async function readJsonBody(request) {
     error.message = 'Invalid JSON request body';
     throw error;
   }
+}
+
+function authorizedRequest(request, url, expectedToken) {
+  const supplied = request.headers['x-adl-token'] ?? url.searchParams.get('token') ?? '';
+  const actual = Buffer.from(String(supplied));
+  const expected = Buffer.from(expectedToken);
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+function sameOriginRequest(request, expectedOrigin) {
+  const origin = request.headers.origin;
+  return !origin || origin === expectedOrigin;
 }
 
 function sendJson(response, status, body) {

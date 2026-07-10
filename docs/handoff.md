@@ -2,7 +2,7 @@
 
 ## Current State
 
-This repository has a usable MVP CLI.
+This repository has a v0.2 release candidate CLI.
 
 The documentation defines Agent Decision Lab as an open-source local-first CLI
 for managing branching AI development experiments. The repository now also
@@ -20,6 +20,8 @@ Implemented commands:
 - `adl insight export`
 - `adl mcp serve`
 - `adl status`
+- `adl migrate`
+- `adl repair --dry-run`
 - `adl adapter list`
 - `adl adapter show`
 - `adl adapter scaffold`
@@ -106,6 +108,11 @@ The CLI supports:
 The MVP uses manual transcript logging plus provider-neutral adapter/plugin
 recipes. Direct model orchestration is still a future adapter layer, not a
 dependency of the first usable version.
+
+The v0.2 metadata schema is `agent-decision-lab/v2`. Mutations use a lab lock,
+atomic JSON replacement, worktree-aware attribution, and a private operation
+journal. Use `adl migrate --dry-run` before applying v1 migration and `adl
+repair --dry-run` when doctor reports an incomplete operation.
 
 ## Current Stack
 
