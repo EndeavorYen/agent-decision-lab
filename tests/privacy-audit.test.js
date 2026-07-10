@@ -52,3 +52,26 @@ test('privacy audit scans public files without false positives for safe examples
     await cleanup(repo);
   }
 });
+
+test('privacy audit includes untracked non-ignored public files', async () => {
+  const repo = await createTempGitRepo();
+  try {
+    await writeFile(
+      join(repo, 'new-release-note.md'),
+      'Authorization: Bearer untracked-release-token-1234567890\n',
+    );
+
+    const result = runAdl(
+      repo,
+      ['privacy', 'audit', '--public-files', '--json'],
+      { allowFailure: true },
+    );
+    assert.equal(result.status, 1);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.findings.some((finding) => (
+      finding.kind === 'secret' && finding.path === 'new-release-note.md'
+    )), true);
+  } finally {
+    await cleanup(repo);
+  }
+});

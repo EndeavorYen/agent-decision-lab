@@ -60,7 +60,12 @@ export function formatPrivacyAudit(report) {
 
 async function filesToScan(repoPath, options) {
   if (options.publicFiles === true) {
-    const result = git(repoPath, ['ls-files'], { allowFailure: true });
+    const result = git(repoPath, [
+      'ls-files',
+      '--cached',
+      '--others',
+      '--exclude-standard',
+    ], { allowFailure: true });
     if (result.status !== 0) {
       return [];
     }

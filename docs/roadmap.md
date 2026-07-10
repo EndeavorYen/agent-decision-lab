@@ -93,7 +93,7 @@ Deliverables:
 
 ## Phase 6: First Example Run
 
-Status: ready to run against a toy or sanitized workspace.
+Status: complete with sanitized public walkthroughs and private live evidence.
 
 Goal: use Agent Decision Lab to run a sample experiment against a toy repository
 or sanitized workspace.
@@ -173,8 +173,25 @@ Deliverables:
 - Executable agent wrapper adapters.
 - Direct model provider adapters.
 - TUI tree navigator.
-- SVG visual renderer.
 - Hosted web dashboard.
 - Evaluation framework integration.
 - Multi-user collaboration.
 - Hosted mode, only if privacy and governance requirements are clear.
+
+## Phase 10: Reliability and Recovery
+
+Status: implemented for v0.2.0.
+
+Goal: make parallel worktree recording safe and make interrupted Git operations
+diagnosable without destructive automation.
+
+Deliverables:
+
+- worktree-aware event attribution;
+- cross-process lab writer lock;
+- atomic JSON writes and aggregate revisions;
+- v1-to-v2 schema migration and fail-closed validation;
+- operation journal and `adl repair --dry-run`;
+- strict CLI option contracts and typed MCP schemas;
+- launch-token protected local UI;
+- parallel-writer and three-worktree acceptance tests.

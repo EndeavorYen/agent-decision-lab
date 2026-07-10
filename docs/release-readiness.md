@@ -18,10 +18,15 @@ The command runs:
 
 - `npm test`;
 - `npm run smoke`;
+- `npm run privacy`;
 - `git diff --check`;
 - `npm pack --dry-run`.
 
 GitHub Actions runs the same command on pushes to `main` and pull requests.
+
+For v0.2, also inspect `npm run coverage` and confirm the parallel-writer,
+worktree-attribution, migration, recovery, CLI contract, MCP schema, and local
+UI authorization tests pass.
 
 ## Functional Gates
 

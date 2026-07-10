@@ -180,6 +180,19 @@ result, benchmark, transcript, or manual review note.
   paths, or model outputs.
 - Provide `.gitignore` guidance for private experiment data.
 
+### Parallel Reliability and Recovery
+
+- Serialize parallel metadata writers across the base checkout and registered
+  variant worktrees.
+- Attribute implicit events to the worktree from which the command was invoked.
+- Replace aggregate JSON atomically and reject malformed or unsupported schema
+  versions before commands consume them.
+- Provide an explicit v1-to-v2 migration preview and apply path.
+- Journal Git-affecting operations before side effects and expose incomplete
+  operations through doctor and a non-destructive repair dry-run.
+- Never recover by deleting branches, worktrees, or experiment data
+  automatically.
+
 ## Future Requirements
 
 - Direct model or coding-agent execution adapters.

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { cleanup, createTempGitRepo, runAdl } from './helpers.js';
 
@@ -40,6 +40,25 @@ test('doctor honors Git exclude rules for private lab ignore', async () => {
     const result = runAdl(repo, ['doctor']);
     assert.equal(result.status, 0);
     assert.match(result.stdout, /Private lab ignore: ok/);
+  } finally {
+    await cleanup(repo);
+  }
+});
+
+test('doctor tells v1 stores to preview migration', async () => {
+  const repo = await createTempGitRepo();
+  try {
+    runAdl(repo, ['init', 'Legacy Doctor Lab']);
+    const configPath = join(repo, '.agent-lab', 'config.json');
+    const config = JSON.parse(await readFile(configPath, 'utf8'));
+    config.schemaVersion = 'agent-decision-lab/v1';
+    delete config.revision;
+    await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
+
+    const result = runAdl(repo, ['doctor']);
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Metadata schema: warn/);
+    assert.match(result.stdout, /adl migrate --dry-run/);
   } finally {
     await cleanup(repo);
   }

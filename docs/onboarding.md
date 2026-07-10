@@ -22,7 +22,11 @@ From the target repository:
 ```bash
 adl doctor
 adl whereami
+adl migrate --dry-run
 ```
+
+If doctor reports a v1 store, review the migration plan and then run `adl
+migrate`. Re-run doctor after migration.
 
 If the doctor warns that private experiment data is not ignored, add this to
 the target repository's `.gitignore` unless that repository intentionally tracks
@@ -120,7 +124,7 @@ The current recipes are intentionally lightweight:
 
 These are plugin recipes, not executable provider integrations. They establish
 the shape that future agent-specific adapters can implement without making the
-v0.1.0 release depend on a model provider.
+release depend on a model provider.
 
 ## Readiness Checklist
 
@@ -160,4 +164,6 @@ When a run is interrupted:
 - run `adl worktree status`;
 - inspect the target worktree directly before deleting anything;
 - use `adl worktree cleanup --dry-run` to preview cleanup only;
+- use `adl repair --dry-run` when doctor reports an incomplete Git or metadata
+  operation;
 - return to a savepoint with `adl savepoint checkout <savepoint> --branch <new-branch>`.

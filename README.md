@@ -25,9 +25,10 @@ used.
 
 ## Status
 
-MVP CLI implemented. The current repository contains product and engineering
-specifications plus a dependency-free Node.js command line tool for the first
-local experiment workflow.
+Version 0.2 release candidate. The dependency-free CLI now includes
+transactional metadata writes, worktree-aware event attribution, explicit
+schema migration, non-destructive recovery diagnostics, typed MCP recording
+tools, and a launch-token protected local UI.
 
 ## Why This Exists
 
@@ -91,6 +92,7 @@ adl --help
 
 ```bash
 adl init "Improve Checkout Flow"
+adl migrate --dry-run
 adl doctor
 adl whereami --json
 adl lab start "Agent Strategy Lab" \
@@ -139,6 +141,7 @@ adl run --tail 30 --variant guidance-first -- npm test
 adl worktree list
 adl worktree status
 adl worktree cleanup --dry-run
+adl repair --dry-run
 adl tree
 adl export --format json --out .agent-lab/exports/latest.json
 adl export --format markdown --out .agent-lab/exports/latest.md
@@ -167,6 +170,10 @@ reviewer. See [Insight Pack Schema](docs/insight-pack-schema.md).
 `adl mcp serve` starts a local stdio MCP adapter so MCP-capable agents can list
 ADL tools, inspect status, and record prompts, responses, notes, checkpoints,
 and supplied command metadata without executing arbitrary shell commands.
+
+`adl migrate --dry-run` previews v1-to-v2 metadata changes. `adl repair
+--dry-run` reports incomplete Git/metadata operations but never deletes or
+rewrites them.
 
 Use `adl experiment create` when a repository already has `.agent-lab/` data
 and you want a separate case study without overwriting previous experiments.
@@ -221,6 +228,7 @@ or local review scripts without depending on a specific model provider.
 - [Realtime UI](docs/ui.md)
 - [Insight Pack Schema](docs/insight-pack-schema.md)
 - [Release Readiness](docs/release-readiness.md)
+- [v0.2.0 Release Notes](docs/releases/v0.2.0.md)
 - [Reality Slap Skill Case Study](docs/examples/reality-slap-skill-case-study.md)
 - [Roadmap](docs/roadmap.md)
 - [Research Notes](docs/research-notes.md)

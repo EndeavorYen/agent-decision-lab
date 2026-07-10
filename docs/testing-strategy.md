@@ -40,6 +40,15 @@ Use temporary Git repositories to verify real behavior:
 
 Integration tests should not require network access.
 
+Concurrency and recovery tests must verify that:
+
+- twenty concurrent writers preserve every record and valid JSON;
+- events recorded from separate worktrees use the invoking variant;
+- v1 metadata migrates to v2 and unknown schemas fail closed;
+- prepared or failed Git operations remain visible to doctor and repair
+  dry-runs;
+- unauthorized, cross-origin, and oversized local UI requests are rejected.
+
 Savepoint integration tests should verify that:
 
 - a forkable savepoint records the exact current commit;
@@ -142,6 +151,8 @@ Current verification commands:
 ```bash
 npm test
 npm run smoke
+npm run coverage
+npm run privacy
 git diff --check
 git status --short
 ```

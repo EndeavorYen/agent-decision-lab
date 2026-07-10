@@ -3,6 +3,8 @@ import { access, readFile } from 'node:fs/promises';
 import { listAdapters, renderAdapterGuide } from './adapters.js';
 import { parseArgs } from './args.js';
 import { compareVariants } from './compare.js';
+import { validateCommandInvocation } from './command-contracts.js';
+import { dispatchCommand } from './command-registry.js';
 import { formatContextReport, inspectContext } from './context.js';
 import { formatDoctorReport, runDoctor } from './doctor.js';
 import { appendEvent } from './events.js';
@@ -10,10 +12,12 @@ import { exportExperiment } from './export.js';
 import { draftGuidance } from './guidance.js';
 import { exportInsightPack } from './insight.js';
 import { formatGuidedLabResult, startGuidedLab } from './lab.js';
+import { migrateLabStore } from './migration.js';
 import { serveMcp } from './mcp.js';
 import { renderOrchestratorGuide } from './orchestrator.js';
 import { auditPrivacy, formatPrivacyAudit } from './privacy-audit.js';
 import { createRebuildLab } from './rebuild.js';
+import { formatRecoveryPlan, inspectRecovery } from './recovery.js';
 import { renderTree } from './render.js';
 import { createUiServer } from './ui.js';
 import {
@@ -31,110 +35,79 @@ import {
 } from './store.js';
 import { addArtifact, evaluateVariant, setStrategy } from './strategy.js';
 import { createContextAbTemplate } from './templates.js';
+import { version } from './version.js';
 
 export async function runCli(argv, io) {
   const { command, options, positionals } = parseArgs(argv);
 
   try {
+    if (options.version === true) {
+      write(io.stdout, `${version}\n`);
+      return 0;
+    }
     if (options.help || command.length === 0 || command[0] === 'help') {
       write(io.stdout, helpText());
       return 0;
     }
 
     const name = command.join(' ');
-    switch (name) {
-      case 'init':
-        return await initCommand(io, options, positionals);
-      case 'status':
-        return await statusCommand(io);
-      case 'whereami':
-      case 'context':
-        return await whereamiCommand(io, options);
-      case 'doctor':
-        return await doctorCommand(io, options);
-      case 'ui':
-        return await uiCommand(io, options);
-      case 'lab start':
-        return await labStartCommand(io, options, positionals);
-      case 'privacy audit':
-        return await privacyAuditCommand(io, options);
-      case 'insight export':
-        return await insightExportCommand(io, options, positionals);
-      case 'mcp serve':
-        return await mcpServeCommand(io);
-      case 'adapter list':
-      case 'plugin list':
-        return await adapterListCommand(io);
-      case 'adapter show':
-      case 'plugin show':
-        return await adapterShowCommand(io, options, positionals);
-      case 'adapter scaffold':
-      case 'plugin scaffold':
-        return await adapterScaffoldCommand(io, options, positionals);
-      case 'experiment create':
-        return await experimentCreateCommand(io, options, positionals);
-      case 'experiment list':
-        return await experimentListCommand(io);
-      case 'experiment switch':
-        return await experimentSwitchCommand(io, options, positionals);
-      case 'case-study init':
-        return await caseStudyInitCommand(io, options, positionals);
-      case 'case-study add-variant':
-        return await caseStudyAddVariantCommand(io, options, positionals);
-      case 'case-study record-result':
-        return await caseStudyRecordResultCommand(io, options, positionals);
-      case 'case-study export':
-        return await caseStudyExportCommand(io, options, positionals);
-      case 'rebuild init':
-        return await rebuildInitCommand(io, options, positionals);
-      case 'decision create':
-        return await decisionCreateCommand(io, options, positionals);
-      case 'savepoint create':
-        return await savepointCreateCommand(io, options, positionals);
-      case 'savepoint checkout':
-        return await savepointCheckoutCommand(io, options, positionals);
-      case 'variant start':
-        return await variantStartCommand(io, options, positionals);
-      case 'variant checkout':
-        return await variantCheckoutCommand(io, options, positionals);
-      case 'worktree list':
-        return await worktreeListCommand(io);
-      case 'worktree status':
-        return await worktreeStatusCommand(io);
-      case 'worktree cleanup':
-        return await worktreeCleanupCommand(io, options);
-      case 'strategy set':
-        return await strategySetCommand(io, options, positionals);
-      case 'artifact add':
-        return await artifactAddCommand(io, options, positionals);
-      case 'template context-ab':
-        return await templateContextAbCommand(io, options);
-      case 'evaluate':
-        return await evaluateCommand(io, options, positionals);
-      case 'compare':
-        return await compareCommand(io, options, positionals);
-      case 'guidance draft':
-        return await guidanceDraftCommand(io, options);
-      case 'orchestrate':
-        return await orchestrateCommand(io, options, positionals);
-      case 'log prompt':
-      case 'log response':
-      case 'log note':
-      case 'log command':
-      case 'log artifact':
-        return await logCommand(io, command[1], options, positionals);
-      case 'checkpoint':
-        return await checkpointCommand(io, options, positionals);
-      case 'tree':
+    validateCommandInvocation(name, options, positionals);
+    const handlers = {
+      init: () => initCommand(io, options, positionals),
+      status: () => statusCommand(io),
+      migrate: () => migrateCommand(io, options),
+      repair: () => repairCommand(io, options),
+      whereami: () => whereamiCommand(io, options),
+      context: () => whereamiCommand(io, options),
+      doctor: () => doctorCommand(io, options),
+      ui: () => uiCommand(io, options),
+      'lab start': () => labStartCommand(io, options, positionals),
+      'privacy audit': () => privacyAuditCommand(io, options),
+      'insight export': () => insightExportCommand(io, options, positionals),
+      'mcp serve': () => mcpServeCommand(io),
+      'adapter list': () => adapterListCommand(io),
+      'plugin list': () => adapterListCommand(io),
+      'adapter show': () => adapterShowCommand(io, options, positionals),
+      'plugin show': () => adapterShowCommand(io, options, positionals),
+      'adapter scaffold': () => adapterScaffoldCommand(io, options, positionals),
+      'plugin scaffold': () => adapterScaffoldCommand(io, options, positionals),
+      'experiment create': () => experimentCreateCommand(io, options, positionals),
+      'experiment list': () => experimentListCommand(io),
+      'experiment switch': () => experimentSwitchCommand(io, options, positionals),
+      'case-study init': () => caseStudyInitCommand(io, options, positionals),
+      'case-study add-variant': () => caseStudyAddVariantCommand(io, options, positionals),
+      'case-study record-result': () => caseStudyRecordResultCommand(io, options, positionals),
+      'case-study export': () => caseStudyExportCommand(io, options, positionals),
+      'rebuild init': () => rebuildInitCommand(io, options, positionals),
+      'decision create': () => decisionCreateCommand(io, options, positionals),
+      'savepoint create': () => savepointCreateCommand(io, options, positionals),
+      'savepoint checkout': () => savepointCheckoutCommand(io, options, positionals),
+      'variant start': () => variantStartCommand(io, options, positionals),
+      'variant checkout': () => variantCheckoutCommand(io, options, positionals),
+      'worktree list': () => worktreeListCommand(io),
+      'worktree status': () => worktreeStatusCommand(io),
+      'worktree cleanup': () => worktreeCleanupCommand(io, options),
+      'strategy set': () => strategySetCommand(io, options, positionals),
+      'artifact add': () => artifactAddCommand(io, options, positionals),
+      'template context-ab': () => templateContextAbCommand(io, options),
+      evaluate: () => evaluateCommand(io, options, positionals),
+      compare: () => compareCommand(io, options, positionals),
+      'guidance draft': () => guidanceDraftCommand(io, options),
+      orchestrate: () => orchestrateCommand(io, options, positionals),
+      'log prompt': () => logCommand(io, command[1], options, positionals),
+      'log response': () => logCommand(io, command[1], options, positionals),
+      'log note': () => logCommand(io, command[1], options, positionals),
+      'log command': () => logCommand(io, command[1], options, positionals),
+      'log artifact': () => logCommand(io, command[1], options, positionals),
+      checkpoint: () => checkpointCommand(io, options, positionals),
+      tree: async () => {
         write(io.stdout, await renderTree(io.cwd));
         return 0;
-      case 'export':
-        return await exportCommand(io, options);
-      case 'run':
-        return await runCommand(io, options, positionals);
-      default:
-        throw new Error(`Unknown command: ${name}`);
-    }
+      },
+      export: () => exportCommand(io, options),
+      run: () => runCommand(io, options, positionals),
+    };
+    return await dispatchCommand(name, null, handlers);
   } catch (error) {
     write(io.stderr, `Error: ${error.message}\n`);
     return 1;
@@ -170,6 +143,25 @@ async function statusCommand(io) {
   return 0;
 }
 
+async function migrateCommand(io, options) {
+  const result = await migrateLabStore(io.cwd, { dryRun: options.dryRun === true });
+  write(io.stdout, [
+    `${result.dryRun ? 'Migration plan' : 'Migration complete'}: ${result.from} -> ${result.to}`,
+    `Changed files: ${result.changedFiles.length}`,
+    ...result.changedFiles.map((path) => `- ${path}`),
+    '',
+  ].join('\n'));
+  return 0;
+}
+
+async function repairCommand(io, options) {
+  if (options.dryRun !== true) {
+    throw new Error('repair currently requires --dry-run');
+  }
+  write(io.stdout, formatRecoveryPlan(await inspectRecovery(io.cwd)));
+  return 0;
+}
+
 async function whereamiCommand(io, options) {
   const context = await inspectContext(io.cwd);
   if (options.json === true) {
@@ -195,7 +187,7 @@ async function uiCommand(io, options) {
     host: options.host ?? '127.0.0.1',
     port: options.port ? Number(options.port) : 8787,
   });
-  write(io.stdout, `ADL UI listening at ${ui.url}\n`);
+  write(io.stdout, `ADL UI listening at ${ui.launchUrl}\n`);
   await new Promise((resolve) => {
     let stopping = false;
     const stop = async () => {
@@ -829,10 +821,12 @@ async function readStream(stream) {
 }
 
 function helpText() {
-  return `Agent Decision Lab (adl)
+  return `Agent Decision Lab ${version} (adl)
 
 Usage:
   adl init "Experiment Title"
+  adl migrate [--dry-run]
+  adl repair --dry-run
   adl doctor [--json]
   adl whereami [--json]
   adl lab start "Strategy Lab" --variants docs-visible,prompt-only [--worktree]

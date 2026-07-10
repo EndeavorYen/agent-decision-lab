@@ -13,8 +13,17 @@ import {
   getRepoMetadata,
 } from './git.js';
 import { makeExperimentId, makeNodeId, slugify } from './ids.js';
+import { beginOperation, completeOperation, failOperation } from './operations.js';
+import {
+  bumpRevision,
+  CURRENT_SCHEMA_VERSION,
+  validateConfig,
+  validateStoreDocuments,
+  validateStoreRecords,
+} from './schema.js';
+import { withLabLock, writeJsonAtomic } from './transaction.js';
 
-export const schemaVersion = 'agent-decision-lab/v1';
+export const schemaVersion = CURRENT_SCHEMA_VERSION;
 
 export async function createExperimentStore(repoPath, input) {
   return createExperiment(repoPath, input, { allowExistingLab: false });
@@ -29,6 +38,12 @@ async function createExperiment(repoPath, input, options) {
     throw new Error('Experiment title is required');
   }
 
+  const labRoot = getRepoMetadata(repoPath).path;
+  return withLabLock(labRoot, () => createExperimentUnlocked(labRoot, input, options));
+}
+
+async function createExperimentUnlocked(repoPath, input, options) {
+
   const labDir = join(repoPath, '.agent-lab');
   const configPath = join(labDir, 'config.json');
   const configExists = await exists(configPath);
@@ -42,6 +57,7 @@ async function createExperiment(repoPath, input, options) {
   const now = new Date().toISOString();
   const experiment = {
     schemaVersion,
+    revision: 0,
     id,
     title: input.title,
     description: input.description ?? '',
@@ -60,17 +76,20 @@ async function createExperiment(repoPath, input, options) {
   await mkdir(join(experimentDir, 'rubrics'), { recursive: true });
   await mkdir(join(experimentDir, 'evaluations'), { recursive: true });
   await mkdir(join(experimentDir, 'comparisons'), { recursive: true });
+  await mkdir(join(experimentDir, 'operations'), { recursive: true });
   await mkdir(join(experimentDir, 'exports'), { recursive: true });
   const config = configExists
     ? {
       ...await readJson(configPath),
       schemaVersion,
+      revision: 0,
       currentExperimentId: id,
       activeVariantId: null,
       updatedAt: now,
     }
     : {
       schemaVersion,
+      revision: 0,
       currentExperimentId: id,
       activeVariantId: null,
       createdAt: now,
@@ -80,11 +99,13 @@ async function createExperiment(repoPath, input, options) {
   await writeJson(join(experimentDir, 'experiment.json'), experiment);
   await writeJson(join(experimentDir, 'tree.json'), {
     schemaVersion,
+    revision: 0,
     experimentId: id,
     nodes: [],
   });
   await writeJson(join(experimentDir, 'artifacts.json'), {
     schemaVersion,
+    revision: 0,
     experimentId: id,
     artifacts: [],
   });
@@ -113,10 +134,12 @@ export async function listExperimentStores(repoPath) {
 }
 
 export async function switchExperimentStore(repoPath, value) {
-  const labDir = join(repoPath, '.agent-lab');
+  const initialStore = await loadCurrentStore(repoPath);
+  return withLabLock(initialStore.labRoot, async () => {
+  const labDir = join(initialStore.labRoot, '.agent-lab');
   const configPath = join(labDir, 'config.json');
   const config = await readJson(configPath);
-  const experiments = await listExperimentStores(repoPath);
+  const experiments = await listExperimentStores(initialStore.labRoot);
   const normalized = slugify(value);
   const experiment = experiments.find((record) => (
     record.id === value
@@ -130,18 +153,22 @@ export async function switchExperimentStore(repoPath, value) {
   config.currentExperimentId = experiment.id;
   config.activeVariantId = null;
   config.updatedAt = new Date().toISOString();
+  bumpRevision(config);
   await writeJson(configPath, config);
   return experiment;
+  });
 }
 
 export async function loadCurrentStore(repoPath) {
+  const invocationPath = getRepoMetadata(repoPath).path;
   const labRoot = await resolveLabRoot(repoPath);
-  return await loadCurrentStoreDirect(labRoot);
+  return await loadCurrentStoreDirect(labRoot, invocationPath);
 }
 
-async function loadCurrentStoreDirect(repoPath) {
+async function loadCurrentStoreDirect(repoPath, invocationPath = repoPath) {
   const labDir = join(repoPath, '.agent-lab');
   const config = await readJson(join(labDir, 'config.json'));
+  validateConfig(config);
   const experimentDir = join(labDir, 'experiments', config.currentExperimentId);
   const paths = {
     labDir,
@@ -157,6 +184,7 @@ async function loadCurrentStoreDirect(repoPath) {
     rubricsDir: join(experimentDir, 'rubrics'),
     evaluationsDir: join(experimentDir, 'evaluations'),
     comparisonsDir: join(experimentDir, 'comparisons'),
+    operationsDir: join(experimentDir, 'operations'),
     exportsDir: join(experimentDir, 'exports'),
     guidancePath: join(experimentDir, 'exports', 'guidance.json'),
   };
@@ -164,6 +192,7 @@ async function loadCurrentStoreDirect(repoPath) {
   const experiment = await readJson(paths.experimentPath);
   const tree = await readJson(paths.treePath);
   const artifacts = await readJson(paths.artifactsPath);
+  validateStoreDocuments({ config, experiment, tree, artifacts });
   const events = await readEvents(paths.eventsPath);
   const variants = await readVariants(paths.variantsDir);
   const savepoints = await readJsonDir(paths.savepointsDir);
@@ -171,10 +200,13 @@ async function loadCurrentStoreDirect(repoPath) {
   const rubrics = await readJsonDir(paths.rubricsDir);
   const evaluations = await readJsonDir(paths.evaluationsDir);
   const comparisons = await readJsonDir(paths.comparisonsDir);
+  const operations = await readJsonDir(paths.operationsDir);
   const guidanceDrafts = await readOptionalRecord(paths.guidancePath);
 
-  return {
+  const store = {
     repoPath,
+    labRoot: repoPath,
+    invocationPath,
     paths,
     config,
     experiment,
@@ -187,8 +219,21 @@ async function loadCurrentStoreDirect(repoPath) {
     rubrics,
     evaluations,
     comparisons,
+    operations,
     guidanceDrafts,
   };
+  validateStoreRecords(store);
+  return store;
+}
+
+export function resolveInvocationVariant(store) {
+  if (resolve(store.invocationPath) === resolve(store.labRoot)) {
+    return null;
+  }
+  return store.variants.find((variant) => (
+    variant.worktreePath
+    && resolve(variant.worktreePath) === resolve(store.invocationPath)
+  )) ?? null;
 }
 
 async function resolveLabRoot(repoPath) {
@@ -230,7 +275,7 @@ export async function createDecision(repoPath, input) {
   if (!input?.title) {
     throw new Error('Decision title is required');
   }
-  const store = await loadCurrentStore(repoPath);
+  return withCurrentStoreLock(repoPath, async (store) => {
   const id = uniqueNodeId(store.tree.nodes, makeNodeId('dec', input.title));
   const now = new Date().toISOString();
   const decision = {
@@ -243,15 +288,17 @@ export async function createDecision(repoPath, input) {
   };
 
   store.tree.nodes.push(decision);
+  bumpRevision(store.tree);
   await writeJson(store.paths.treePath, store.tree);
   return decision;
+  });
 }
 
 export async function createSavepoint(repoPath, input) {
   if (!input?.title) {
     throw new Error('Savepoint title is required');
   }
-  const store = await loadCurrentStore(repoPath);
+  return withCurrentStoreLock(repoPath, async (store) => {
   const decision = resolveDecision(store.tree.nodes, input.decision);
   if (!decision) {
     throw new Error(`Decision not found: ${input.decision}`);
@@ -299,16 +346,18 @@ export async function createSavepoint(repoPath, input) {
     createdAt: savepoint.createdAt,
   });
 
+  bumpRevision(store.tree);
   await writeJson(join(store.paths.savepointsDir, `${savepoint.id}.json`), savepoint);
   await writeJson(store.paths.treePath, store.tree);
   return savepoint;
+  });
 }
 
 export async function startVariant(repoPath, input) {
   if (!input?.name) {
     throw new Error('Variant name is required');
   }
-  const store = await loadCurrentStore(repoPath);
+  return withCurrentStoreLock(repoPath, async (store) => {
   const savepoint = input.from || input.savepointId
     ? resolveSavepoint(store.savepoints, input.from ?? input.savepointId)
     : null;
@@ -346,24 +395,41 @@ export async function startVariant(repoPath, input) {
   const branch = input.branch ?? `adl/${experimentSlug}/${variantSlug}`;
   const baseCommit = input.baseCommit ?? savepoint?.git?.commit ?? store.experiment.baseRepository.baseCommit;
   let worktreePath = input.worktreePath ? resolve(repoPath, input.worktreePath) : null;
-
-  if (input.attach) {
-    if (branch && !branchExists(repoPath, branch)) {
-      throw new Error(`Cannot attach missing branch: ${branch}`);
-    }
-  } else if (createWorktreeRequested) {
-    worktreePath ??= resolve(
+  if (createWorktreeRequested && !worktreePath) {
+    worktreePath = resolve(
       repoPath,
       '..',
       `${basename(repoPath)}-agent-lab`,
       experimentSlug,
       variantSlug,
     );
+  }
+  if (input.attach && branch && !branchExists(repoPath, branch)) {
+    throw new Error(`Cannot attach missing branch: ${branch}`);
+  }
+  if (!input.attach && createWorktreeRequested && await exists(worktreePath)) {
+    throw new Error(`Worktree path already exists: ${worktreePath}`);
+  }
+  if (!input.attach && !createWorktreeRequested && createBranchRequested && branchExists(repoPath, branch)) {
+    throw new Error(`Branch already exists: ${branch}`);
+  }
+
+  const operation = await beginOperation(store, {
+    type: 'start-variant',
+    variantId: id,
+    variantName: input.name,
+    branch,
+    worktreePath,
+    baseCommit,
+  });
+
+  try {
+  if (!input.attach && createWorktreeRequested) {
     if (await exists(worktreePath)) {
       throw new Error(`Worktree path already exists: ${worktreePath}`);
     }
     createWorktree(repoPath, worktreePath, branch, baseCommit);
-  } else if (createBranchRequested) {
+  } else if (!input.attach && createBranchRequested) {
     createBranch(repoPath, branch, baseCommit);
   }
   if (checkoutCurrentWorktree) {
@@ -401,16 +467,27 @@ export async function startVariant(repoPath, input) {
   });
   store.config.activeVariantId = variant.id;
   store.config.updatedAt = now;
+  bumpRevision(store.tree);
+  bumpRevision(store.config);
 
   await writeJson(join(store.paths.variantsDir, `${variant.id}.json`), variant);
   await writeJson(store.paths.treePath, store.tree);
   await writeJson(store.paths.configPath, store.config);
+  await completeOperation(store, {
+    ...operation,
+    worktreePath: variant.worktreePath,
+  });
 
   return variant;
+  } catch (error) {
+    await failOperation(store, operation, error).catch(() => {});
+    throw error;
+  }
+  });
 }
 
 export async function checkoutVariant(repoPath, input) {
-  const store = await loadCurrentStore(repoPath);
+  return withCurrentStoreLock(repoPath, async (store) => {
   const variant = findVariant(store, input.variant ?? input.name);
   if (!variant) {
     throw new Error(`Variant not found: ${input.variant ?? input.name}`);
@@ -423,16 +500,31 @@ export async function checkoutVariant(repoPath, input) {
     );
   }
 
+  const operation = await beginOperation(store, {
+    type: 'checkout-variant',
+    variantId: variant.id,
+    variantName: variant.name,
+    branch: variant.branch,
+    worktreePath: variant.worktreePath,
+    baseCommit: variant.baseCommit,
+  });
+  try {
   if (!variant.worktreePath) {
     checkoutBranch(repoPath, variant.branch);
   }
   store.config.activeVariantId = variant.id;
-  await saveConfig(store);
+  await saveConfigUnlocked(store);
+  await completeOperation(store, operation);
   return variant;
+  } catch (error) {
+    await failOperation(store, operation, error).catch(() => {});
+    throw error;
+  }
+  });
 }
 
 export async function checkoutSavepoint(repoPath, input) {
-  const store = await loadCurrentStore(repoPath);
+  return withCurrentStoreLock(repoPath, async (store) => {
   const savepoint = findSavepoint(store, input.savepoint ?? input.name);
   if (!savepoint) {
     throw new Error(`Savepoint not found: ${input.savepoint ?? input.name}`);
@@ -445,20 +537,49 @@ export async function checkoutSavepoint(repoPath, input) {
   }
 
   const branch = input.branch ?? `adl/${slugify(store.experiment.title)}/savepoints/${slugify(savepoint.title)}`;
+  const operation = await beginOperation(store, {
+    type: 'checkout-savepoint',
+    variantId: null,
+    variantName: null,
+    branch,
+    worktreePath: null,
+    baseCommit: savepoint.git.commit,
+  });
+  try {
   checkoutNewBranch(repoPath, branch, savepoint.git.commit);
   store.config.activeVariantId = null;
-  await saveConfig(store);
+  await saveConfigUnlocked(store);
+  await completeOperation(store, operation);
   return { savepoint, branch };
+  } catch (error) {
+    await failOperation(store, operation, error).catch(() => {});
+    throw error;
+  }
+  });
 }
 
 export async function saveConfig(store) {
+  return withLabLock(store.labRoot ?? store.repoPath, async () => {
+    const current = await readJson(store.paths.configPath);
+    if (current.currentExperimentId !== store.config.currentExperimentId) {
+      store.config = current;
+      return current;
+    }
+    current.activeVariantId = store.config.activeVariantId;
+    store.config = current;
+    await saveConfigUnlocked(store);
+    return store.config;
+  });
+}
+
+async function saveConfigUnlocked(store) {
   store.config.updatedAt = new Date().toISOString();
+  bumpRevision(store.config);
   await writeJson(store.paths.configPath, store.config);
 }
 
 export async function writeJson(path, value) {
-  await mkdir(dirnameOf(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
+  await writeJsonAtomic(path, value);
 }
 
 export async function readJson(path) {
@@ -567,6 +688,14 @@ async function exists(path) {
   } catch {
     return false;
   }
+}
+
+export async function withCurrentStoreLock(repoPath, callback) {
+  const initialStore = await loadCurrentStore(repoPath);
+  return withLabLock(initialStore.labRoot, async () => {
+    const store = await loadCurrentStore(repoPath);
+    return callback(store);
+  });
 }
 
 function dirnameOf(path) {

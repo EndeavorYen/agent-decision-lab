@@ -20,6 +20,13 @@ test('MCP stdio server lists tools and records events without shell execution', 
     assert.equal(names.includes('log_prompt'), true);
     assert.equal(names.includes('record_command'), true);
     assert.equal(names.includes('run_shell'), false);
+    assert.equal(tools.tools.every((tool) => tool.inputSchema.additionalProperties === false), true);
+    const logNoteTool = tools.tools.find((tool) => tool.name === 'log_note');
+    assert.equal(logNoteTool.inputSchema.properties.body.type, 'string');
+    assert.deepEqual(logNoteTool.inputSchema.required, ['body']);
+    const commandTool = tools.tools.find((tool) => tool.name === 'record_command');
+    assert.equal(commandTool.inputSchema.properties.command.type, 'array');
+    assert.deepEqual(commandTool.inputSchema.required, ['command']);
 
     const doctor = await client.request('tools/call', { name: 'doctor', arguments: {} });
     assert.match(doctor.content[0].text, /Git repository/);
